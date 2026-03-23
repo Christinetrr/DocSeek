@@ -3,12 +3,13 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
-	ResultsHeader,
-	SearchHero,
+	DoctorRecommendationCard,
 	getDoctorSearchUrl,
 	getNextRecommendationLabel,
 	getResultsNavigation,
 	normalizeSymptoms,
+	ResultsHeader,
+	SearchHero,
 	SUGGESTED_SYMPTOMS,
 	searchDoctors,
 } from "../components/App";
@@ -106,11 +107,7 @@ describe("frontend page flow", () => {
 
 	test("renders the landing hero with the responsive helper copy hook", () => {
 		render(
-			<SearchHero
-				symptoms=""
-				onSymptomsChange={vi.fn()}
-				onSubmit={vi.fn()}
-			/>,
+			<SearchHero symptoms="" onSymptomsChange={vi.fn()} onSubmit={vi.fn()} />,
 		);
 
 		expect(screen.getByText("How can we help you today?")).toBeTruthy();
@@ -141,11 +138,47 @@ describe("frontend page flow", () => {
 
 	test("renders the results header summary for compact layouts", () => {
 		render(
-			<ResultsHeader includeBackLink={false} initialSymptoms="persistent cough" />,
+			<ResultsHeader
+				includeBackLink={false}
+				initialSymptoms="persistent cough"
+			/>,
 		);
 
 		expect(screen.getByText("Recommended doctors")).toBeTruthy();
 		expect(screen.getByText("persistent cough")).toBeTruthy();
 		expect(document.querySelector(".results-header-top")).toBeTruthy();
+	});
+
+	test("renders the doctor card header tag and actions with responsive hook classes", () => {
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: "https://example.com/doctors/avery-quinn",
+						book_appointment_url: "https://example.com/book/avery-quinn",
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+			/>,
+		);
+
+		expect(document.querySelector(".doctor-card-header")).toBeTruthy();
+		expect(screen.getByText("Accepting new patients")).toBeTruthy();
+		expect(document.querySelector(".doctor-links")).toBeTruthy();
+		expect(screen.getByRole("link", { name: "View profile" })).toBeTruthy();
+		expect(
+			screen
+				.getByRole("button", {
+					name: "You've reached the last recommendation",
+				})
+				.getAttribute("disabled"),
+		).not.toBeNull();
 	});
 });

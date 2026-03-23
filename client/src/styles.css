@@ -597,6 +597,7 @@ a {
 
   .results-header-top {
     align-items: stretch;
+    flex-wrap: wrap;
   }
 
   .doctor-card {
@@ -610,6 +611,10 @@ a {
   .primary-action {
     width: 4rem;
     height: 4rem;
+  }
+
+  .results-search-summary {
+    width: 100%;
   }
 }
 
@@ -666,11 +671,6 @@ a {
     flex-direction: column;
   }
 
-  .results-header-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .results-search-frame {
     min-height: 3.6rem;
     padding: 0.85rem 1rem;
@@ -679,6 +679,31 @@ a {
   .doctor-card {
     min-height: 0;
     padding: 1.5rem;
+  }
+}
+
+@media (max-width: 540px) {
+  .results-header-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .results-search-summary {
+    width: 100%;
+  }
+
+  .back-link {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .doctor-card-header {
+    gap: 0.85rem;
+  }
+
+  .availability {
+    white-space: normal;
+    align-self: flex-start;
   }
 
   .doctor-links {
