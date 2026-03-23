@@ -1,21 +1,78 @@
-/** @vitest-environment jsdom */
+import { describe, expect, test, vi } from "vitest";
+import {
+	getDoctorSearchUrl,
+	getNextRecommendationLabel,
+	searchDoctors,
+} from "../components/App";
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
-import { App } from "../components/App";
+describe("doctor search helpers", () => {
+	test("builds the doctor search endpoint from the API base URL", () => {
+		expect(getDoctorSearchUrl("http://localhost:3000")).toBe(
+			"http://localhost:3000/doctors/search",
+		);
+	});
 
-describe("App", () => {
-	test("renders the DocSeek landing content", () => {
-		render(<App />);
+	test("rejects empty symptom submissions", async () => {
+		await expect(searchDoctors("   ")).rejects.toThrow(
+			"Enter your current symptoms to search for matching doctors.",
+		);
+	});
 
-		const heading = screen.getByRole("heading", {
-			name: "Find the best UPMC doctors for your specific needs.",
+	test("calls the backend doctor search endpoint and preserves doctor order", async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({
+				doctors: [
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: "https://example.com/doctors/avery-quinn",
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+					{
+						id: 2,
+						full_name: "Dr. Riley Chen",
+						primary_specialty: "Internal Medicine",
+						accepting_new_patients: false,
+						profile_url: "https://example.com/doctors/riley-chen",
+						book_appointment_url: null,
+						primary_location: "Monroeville, PA",
+						primary_phone: "412-555-0111",
+					},
+				],
+			}),
 		});
-		const clientPort = screen.getByText("Client on port 5173");
-		const apiLink = screen.getByRole("link", { name: "API on port 3000" });
 
-		expect(heading).toBeTruthy();
-		expect(clientPort).toBeTruthy();
-		expect(apiLink.getAttribute("href")).toBe("http://localhost:3000");
+		const doctors = await searchDoctors("persistent headaches and dizziness", {
+			apiBaseUrl: "http://localhost:3000",
+			fetchImpl: fetchMock as typeof fetch,
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"http://localhost:3000/doctors/search",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					symptoms: "persistent headaches and dizziness",
+				}),
+			}),
+		);
+		expect(doctors.map((doctor) => doctor.full_name)).toEqual([
+			"Dr. Avery Quinn",
+			"Dr. Riley Chen",
+		]);
+	});
+
+	test("uses the improved next suggestion label", () => {
+		expect(getNextRecommendationLabel(true)).toBe(
+			"See the next recommended doctor",
+		);
+		expect(getNextRecommendationLabel(false)).toBe(
+			"You've reached the last recommendation",
+		);
 	});
 });

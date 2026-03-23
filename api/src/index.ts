@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { DoctorSearchService } from "./search";
 
 type AppDependencies = {
@@ -11,6 +12,13 @@ export function createApp({
 	searchService,
 }: AppDependencies = {}) {
 	const app = new Hono();
+
+	app.use(
+		"*",
+		cors({
+			origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+		}),
+	);
 
 	app.get("/", (c) => {
 		return c.json({
