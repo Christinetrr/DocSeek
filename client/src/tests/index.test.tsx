@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+	SUGGESTED_SYMPTOMS,
 	getDoctorSearchUrl,
 	getNextRecommendationLabel,
 	searchDoctors,
@@ -74,5 +75,14 @@ describe("doctor search helpers", () => {
 		expect(getNextRecommendationLabel(false)).toBe(
 			"You've reached the last recommendation",
 		);
+	});
+
+	test("exposes the quick symptom suggestions in the designed order", () => {
+		expect(SUGGESTED_SYMPTOMS).toEqual([
+			"Migraines",
+			"Nearest UPMC",
+			"MRI scan",
+			"Broken leg",
+		]);
 	});
 });
