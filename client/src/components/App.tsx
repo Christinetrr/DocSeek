@@ -137,11 +137,16 @@ export async function searchDoctors(
 export function SearchPageShell({ children }: SearchPageShellProps) {
 	return (
 		<main className="app-shell">
+			<a className="skip-link" href="#page-content">
+				Skip to main content
+			</a>
 			<div className="background-orb background-orb-left" aria-hidden="true" />
 			<div className="background-orb background-orb-right" aria-hidden="true" />
 			<div className="constellation constellation-top" aria-hidden="true" />
 			<div className="constellation constellation-bottom" aria-hidden="true" />
-			{children}
+			<div id="page-content" className="page-content">
+				{children}
+			</div>
 		</main>
 	);
 }
@@ -159,7 +164,12 @@ export function SearchForm({
 			</label>
 			<div className="search-frame">
 				<div className="search-input-wrap">
-					<Search className="search-icon" size={28} strokeWidth={1.9} />
+					<Search
+						aria-hidden="true"
+						className="search-icon"
+						size={28}
+						strokeWidth={1.9}
+					/>
 					<textarea
 						id="symptoms"
 						name="symptoms"
@@ -168,6 +178,7 @@ export function SearchForm({
 						value={symptoms}
 						onChange={(event) => onSymptomsChange(event.target.value)}
 						placeholder="I have chest pains"
+						required
 					/>
 				</div>
 				<button
@@ -176,7 +187,7 @@ export function SearchForm({
 					disabled={isLoading}
 					aria-label={isLoading ? "Finding doctors" : "Find matching doctors"}
 				>
-					<ArrowRight size={34} strokeWidth={2.1} />
+					<ArrowRight aria-hidden="true" size={34} strokeWidth={2.1} />
 				</button>
 			</div>
 		</form>
@@ -194,7 +205,7 @@ export function SearchHero({
 		<section className="hero">
 			<div className="brand-lockup">
 				<div className="brand-mark" aria-hidden="true">
-					<Stethoscope size={36} strokeWidth={2.1} />
+					<Stethoscope aria-hidden="true" size={36} strokeWidth={2.1} />
 				</div>
 				<p className="eyebrow">DocSeek</p>
 			</div>
@@ -310,7 +321,12 @@ export function DoctorRecommendationCard({
 			</div>
 			<div className="doctor-links">
 				{activeDoctor.profile_url ? (
-					<a href={activeDoctor.profile_url} target="_blank" rel="noreferrer">
+					<a
+						href={activeDoctor.profile_url}
+						target="_blank"
+						rel="noreferrer"
+						aria-label={`View profile for ${activeDoctor.full_name} (opens in a new tab)`}
+					>
 						View profile
 					</a>
 				) : null}
@@ -319,6 +335,7 @@ export function DoctorRecommendationCard({
 						href={activeDoctor.book_appointment_url}
 						target="_blank"
 						rel="noreferrer"
+						aria-label={`Book an appointment with ${activeDoctor.full_name} (opens in a new tab)`}
 					>
 						Book appointment
 					</a>
@@ -341,11 +358,11 @@ export function ResultsHeader({
 	initialSymptoms,
 }: ResultsHeaderProps) {
 	return (
-		<div className="results-header">
+		<header className="results-header">
 			<div className="results-header-top">
 				{includeBackLink ? (
 					<Link className="back-link" to="/">
-						<ArrowLeft size={18} strokeWidth={2.2} />
+						<ArrowLeft aria-hidden="true" size={18} strokeWidth={2.2} />
 						Start a new search
 					</Link>
 				) : null}
@@ -353,12 +370,13 @@ export function ResultsHeader({
 			</div>
 			<div className="results-copy">
 				<p className="results-kicker">Recommended doctors</p>
+				<h1 className="results-title">Recommended doctors</h1>
 				<p className="results-lede">
 					Review one doctor at a time, then move to the next recommendation if
 					you want more options.
 				</p>
 			</div>
-		</div>
+		</header>
 	);
 }
 
@@ -367,11 +385,15 @@ export function ResultsSearchSummary({ symptoms }: ResultsSearchSummaryProps) {
 		<div className="results-search-summary">
 			<div className="results-search-frame">
 				<Search
+					aria-hidden="true"
 					className="search-icon results-search-icon"
 					size={22}
 					strokeWidth={1.9}
 				/>
-				<p className="results-search-text">{symptoms}</p>
+				<p className="results-search-text">
+					<span className="sr-only">Search symptoms:</span>
+					{symptoms}
+				</p>
 			</div>
 		</div>
 	);
@@ -437,11 +459,27 @@ export function ResultsPage({
 
 	return (
 		<SearchPageShell>
-			<section className="results-page">
+			<section
+				className="results-page"
+				aria-busy={isLoading}
+				aria-describedby="results-status"
+			>
 				<ResultsHeader
 					includeBackLink={includeBackLink}
 					initialSymptoms={initialSymptoms}
 				/>
+
+				<div id="results-status" className="sr-only" aria-live="polite">
+					{isLoading
+						? `Loading doctor recommendations for ${initialSymptoms}.`
+						: doctors.length > 0
+							? `Showing ${doctors.length} doctor recommendations for ${initialSymptoms}.`
+							: "No doctor recommendations are currently displayed."}
+				</div>
+
+				{isLoading ? (
+					<p className="loading-message">Loading recommendations…</p>
+				) : null}
 
 				{errorMessage ? (
 					<p className="feedback-message" role="alert">

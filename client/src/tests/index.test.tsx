@@ -10,6 +10,7 @@ import {
 	normalizeSymptoms,
 	ResultsHeader,
 	SearchHero,
+	SearchPageShell,
 	SUGGESTED_SYMPTOMS,
 	searchDoctors,
 } from "../components/App";
@@ -110,6 +111,11 @@ describe("frontend page flow", () => {
 			<SearchHero symptoms="" onSymptomsChange={vi.fn()} onSubmit={vi.fn()} />,
 		);
 
+		expect(
+			screen
+				.getByRole("textbox", { name: "Current symptoms" })
+				.getAttribute("required"),
+		).not.toBeNull();
 		expect(screen.getByText("How can we help you today?")).toBeTruthy();
 		expect(
 			screen.getByText(
@@ -118,6 +124,20 @@ describe("frontend page flow", () => {
 		).toContain("hero-lede");
 		expect(document.querySelector(".suggestion-list")).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Migraines" })).toBeTruthy();
+	});
+
+	test("renders a skip link for keyboard users", () => {
+		render(
+			<SearchPageShell>
+				<div>Content</div>
+			</SearchPageShell>,
+		);
+
+		expect(
+			screen
+				.getByRole("link", { name: "Skip to main content" })
+				.getAttribute("href"),
+		).toBe("#page-content");
 	});
 
 	test("uses the suggested tags to request a symptom update", () => {
@@ -144,7 +164,9 @@ describe("frontend page flow", () => {
 			/>,
 		);
 
-		expect(screen.getByText("Recommended doctors")).toBeTruthy();
+		expect(
+			screen.getByRole("heading", { name: "Recommended doctors" }),
+		).toBeTruthy();
 		expect(screen.getByText("persistent cough")).toBeTruthy();
 		expect(document.querySelector(".results-header-top")).toBeTruthy();
 	});
@@ -172,7 +194,11 @@ describe("frontend page flow", () => {
 		expect(document.querySelector(".doctor-card-header")).toBeTruthy();
 		expect(screen.getByText("Accepting new patients")).toBeTruthy();
 		expect(document.querySelector(".doctor-links")).toBeTruthy();
-		expect(screen.getByRole("link", { name: "View profile" })).toBeTruthy();
+		expect(
+			screen.getByRole("link", {
+				name: "View profile for Dr. Avery Quinn (opens in a new tab)",
+			}),
+		).toBeTruthy();
 		expect(
 			screen
 				.getByRole("button", {
