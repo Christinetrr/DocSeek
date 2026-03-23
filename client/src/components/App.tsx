@@ -64,6 +64,10 @@ export async function searchDoctors(
 		);
 	}
 
+	if (!("doctors" in payload)) {
+		throw new Error("Unable to search for doctors right now.");
+	}
+
 	return payload.doctors;
 }
 
