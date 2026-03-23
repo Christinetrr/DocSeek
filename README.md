@@ -29,13 +29,24 @@ That warning comes from reusing a PostgreSQL data directory created under a diff
 
 Create a root `.env` from `.env.example` for shared local settings such as `DATABASE_URL`, `OPENAI_API_KEY`, and `OPENAI_EMBEDDING_MODEL`.
 
+## Database Setup For New Devs
+
+If you want to set up your local database from the checked-in `upmc_doctors.json` file, do not re-scrape the data. Just run the repopulate script:
+
+```bash
+cd data-scripts
+uv run python repopulate_database.py
+```
+
+This reloads Postgres from `data-scripts/upmc_doctors.json` and refreshes the specialty embeddings.
+
 Service endpoints:
 
 - `client`: `http://localhost:5173`
 - `api`: `http://localhost:3000`
 - `postgres`: `localhost:55432`
 
-The scraping script is still intended to be run from the host machine because the UPMC site blocked headless/containerized requests during implementation. Once Compose is up, load scraped data into the Dockerized Postgres with:
+The scraping script is still intended to be run from the host machine because the UPMC site blocked headless/containerized requests during implementation. Only use it when you need to fetch fresh source data from UPMC. Once Compose is up, you can scrape and load data into the Dockerized Postgres with:
 
 ```bash
 cd data-scripts

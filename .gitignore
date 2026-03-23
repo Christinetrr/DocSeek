@@ -23,7 +23,8 @@ __pycache__/
 data-scripts/.docker-postgres/
 data-scripts/.postgres-data/
 data-scripts/.postgres-log/
-data-scripts/upmc_doctors.json
+# This should normally be ignored, but we want to keep it in the repo for now since it's small and we don't have a better way to share it.
+# data-scripts/upmc_doctors.json
 
 # system files
 .DS_Store
