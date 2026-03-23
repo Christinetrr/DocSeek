@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from main import (
-    SCHEMA_FILE,
+from scrape_doctors import (
     CardData,
     build_doctor_record,
     extract_card_data,
     normalize_tags,
 )
+from shared import SCHEMA_FILE, build_specialty_search_text
 
 INIT_PGVECTOR_FILE = SCHEMA_FILE.parent / "init" / "001-enable-pgvector.sql"
 
@@ -29,6 +29,24 @@ def test_schema_enables_pgvector_extension() -> None:
 
     assert "CREATE EXTENSION IF NOT EXISTS vector;" in schema
     assert "CREATE EXTENSION IF NOT EXISTS vector;" in init_sql
+    assert "CREATE TABLE IF NOT EXISTS doctor_search_embeddings" in schema
+    assert "embedding vector(1536)" in schema
+
+
+def test_build_specialty_search_text_uses_specialties_only() -> None:
+    record = {
+        "primary_specialty": "Family Medicine",
+        "specialties": [
+            "Internal Medicine",
+            "Family Medicine",
+            "Internal Medicine",
+        ],
+    }
+
+    assert (
+        build_specialty_search_text(record)
+        == "Specialty: Internal Medicine; Family Medicine"
+    )
 
 
 def test_extract_card_data_reads_name_specialty_tags_and_ratings_link() -> None:

@@ -13,18 +13,26 @@ from urllib.parse import urljoin
 import psycopg
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
+from shared import (
+    DEFAULT_DB_NAME,
+    DEFAULT_DB_PORT,
+    build_specialty_search_text,
+    create_database_if_needed,
+    dedupe_preserve_order,
+    ensure_schema,
+    load_root_env,
+)
+
 BASE_URL = "https://providers.upmc.com"
 SEARCH_URL = BASE_URL + "/search?sort=name&page={page}"
-DEFAULT_DB_NAME = "docseek_upmc"
-DEFAULT_DB_PORT = 55432
 DEFAULT_DATA_FILE = Path(__file__).with_name("upmc_doctors.json")
-SCHEMA_FILE = Path(__file__).parent / "postgres" / "schema.sql"
 PAGE_DELAY_SECONDS = 5
+
+load_root_env()
 
 
 @dataclass(slots=True)
@@ -40,16 +48,6 @@ def absolute_url(path_or_url: str | None) -> str | None:
     if not path_or_url:
         return None
     return urljoin(BASE_URL, path_or_url)
-
-
-def dedupe_preserve_order(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value and value not in seen:
-            seen.add(value)
-            ordered.append(value)
-    return ordered
 
 
 def extract_card_data(page_html: str) -> dict[int, CardData]:
@@ -288,20 +286,6 @@ def read_json(input_path: Path) -> list[dict[str, Any]]:
     return json.loads(input_path.read_text(encoding="utf-8"))
 
 
-def create_database_if_needed(admin_dsn: str, database_name: str) -> None:
-    with psycopg.connect(admin_dsn, autocommit=True) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM pg_database WHERE datname = %s", (database_name,)
-            )
-            if cur.fetchone() is None:
-                cur.execute(f'CREATE DATABASE "{database_name}"')
-
-
-def ensure_schema(conn: psycopg.Connection[Any]) -> None:
-    conn.execute(SCHEMA_FILE.read_text(encoding="utf-8"))
-
-
 def load_records(conn: psycopg.Connection[Any], records: list[dict[str, Any]]) -> None:
     ensure_schema(conn)
 
@@ -309,9 +293,10 @@ def load_records(conn: psycopg.Connection[Any], records: list[dict[str, Any]]) -
         with conn.cursor() as cur:
             cur.execute(
                 """
-                TRUNCATE doctor_hospitals, doctor_locations, doctor_specialties,
-                         doctor_age_groups, doctor_tags, hospitals, locations,
-                         specialties, age_groups, tags, doctors
+                TRUNCATE doctor_search_embeddings, doctor_hospitals,
+                         doctor_locations, doctor_specialties, doctor_age_groups,
+                         doctor_tags, hospitals, locations, specialties,
+                         age_groups, tags, doctors
                 RESTART IDENTITY;
                 """
             )
@@ -404,6 +389,7 @@ def load_records(conn: psycopg.Connection[Any], records: list[dict[str, Any]]) -
             doctor_tag_rows = []
             doctor_hospital_rows = []
             doctor_location_rows = []
+            doctor_search_rows = []
 
             for record in records:
                 doctor_id = doctor_map[record["source_provider_id"]]
@@ -425,6 +411,12 @@ def load_records(conn: psycopg.Connection[Any], records: list[dict[str, Any]]) -
                             location["rank"] == 1,
                         )
                     )
+                doctor_search_rows.append(
+                    (
+                        doctor_id,
+                        build_specialty_search_text(record),
+                    )
+                )
 
             cur.executemany(
                 "INSERT INTO doctor_specialties (doctor_id, specialty_id) VALUES (%s, %s)",
@@ -448,6 +440,13 @@ def load_records(conn: psycopg.Connection[Any], records: list[dict[str, Any]]) -
                 VALUES (%s, %s, %s, %s)
                 """,
                 doctor_location_rows,
+            )
+            cur.executemany(
+                """
+                INSERT INTO doctor_search_embeddings (doctor_id, content)
+                VALUES (%s, %s)
+                """,
+                doctor_search_rows,
             )
 
 

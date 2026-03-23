@@ -15,7 +15,9 @@ From the repo root you can start Postgres, the API, and the client together with
 docker compose up
 ```
 
-The Postgres container uses the `pgvector` image. Fresh Docker database initialization and the scraper schema bootstrap both enable the `vector` extension automatically.
+The Postgres container uses the `pgvector` image. Fresh Docker database initialization and the data script schema bootstrap both enable the `vector` extension automatically.
+
+Create a root `.env` from `.env.example` for shared local settings such as `DATABASE_URL`, `OPENAI_API_KEY`, and `OPENAI_EMBEDDING_MODEL`.
 
 Service endpoints:
 
@@ -23,11 +25,18 @@ Service endpoints:
 - `api`: `http://localhost:3000`
 - `postgres`: `localhost:55432`
 
-The scraper is still intended to be run from the host machine because the UPMC site blocked headless/containerized requests during implementation. Once Compose is up, load scraped data into the Dockerized Postgres with:
+The scraping script is still intended to be run from the host machine because the UPMC site blocked headless/containerized requests during implementation. Once Compose is up, load scraped data into the Dockerized Postgres with:
 
 ```bash
-cd scraper
-DATABASE_URL=postgresql://docseek:docseek@localhost:55432/docseek_upmc uv run python main.py --mode scrape-load
+cd data-scripts
+uv run python scrape_doctors.py --mode scrape-load
+```
+
+Generate specialty embeddings separately with:
+
+```bash
+cd data-scripts
+uv run python generate_specialty_embeddings.py
 ```
 
 ## Tech stack

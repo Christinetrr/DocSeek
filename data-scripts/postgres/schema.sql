@@ -83,3 +83,12 @@ CREATE TABLE IF NOT EXISTS doctor_locations (
     is_primary BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (doctor_id, location_id)
 );
+
+CREATE TABLE IF NOT EXISTS doctor_search_embeddings (
+    doctor_id BIGINT PRIMARY KEY REFERENCES doctors(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    source_field TEXT NOT NULL DEFAULT 'specialty',
+    embedding_model TEXT,
+    embedding vector(1536),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

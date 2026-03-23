@@ -19,11 +19,11 @@ todos.json
 __pycache__/
 .pytest_cache/
 
-# scraper runtime data
-scraper/.docker-postgres/
-scraper/.postgres-data/
-scraper/.postgres-log/
-scraper/upmc_doctors.json
+# data script runtime data
+data-scripts/.docker-postgres/
+data-scripts/.postgres-data/
+data-scripts/.postgres-log/
+data-scripts/upmc_doctors.json
 
 # system files
 .DS_Store
