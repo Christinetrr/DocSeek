@@ -132,8 +132,6 @@ export function App() {
 						<button className="primary-action" type="submit" disabled={isLoading}>
 							{isLoading ? "Finding doctors..." : "Find matching doctors"}
 						</button>
-						<a href={API_BASE_URL}>API on port 3000</a>
-						<span>Client on port 5173</span>
 					</div>
 				</form>
 
