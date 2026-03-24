@@ -6,6 +6,7 @@ const config = getRuntimeConfig();
 const app = createApp({
 	port: config.port,
 	searchService: createDoctorSearchService(config),
+	corsAllowedOrigins: config.corsAllowedOrigins,
 });
 
 export default {

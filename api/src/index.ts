@@ -5,18 +5,20 @@ import type { DoctorSearchService } from "./search";
 type AppDependencies = {
 	port?: number;
 	searchService?: DoctorSearchService;
+	corsAllowedOrigins?: string[];
 };
 
 export function createApp({
 	port = Number(process.env.PORT ?? 3000),
 	searchService,
+	corsAllowedOrigins = [],
 }: AppDependencies = {}) {
 	const app = new Hono();
 
 	app.use(
 		"*",
 		cors({
-			origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+			origin: corsAllowedOrigins,
 		}),
 	);
 

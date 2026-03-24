@@ -16,7 +16,10 @@ describe("DocSeek API", () => {
 	});
 
 	test("allows the frontend dev server origin", async () => {
-		const app = createApp({ port: 3000 });
+		const app = createApp({
+			port: 3000,
+			corsAllowedOrigins: ["http://localhost:5173"],
+		});
 		const response = await app.request("http://localhost/", {
 			headers: {
 				Origin: "http://localhost:5173",
@@ -26,6 +29,20 @@ describe("DocSeek API", () => {
 		expect(response.headers.get("access-control-allow-origin")).toBe(
 			"http://localhost:5173",
 		);
+	});
+
+	test("does not allow origins that were not configured", async () => {
+		const app = createApp({
+			port: 3000,
+			corsAllowedOrigins: ["http://localhost:5173"],
+		});
+		const response = await app.request("http://localhost/", {
+			headers: {
+				Origin: "http://127.0.0.1:5173",
+			},
+		});
+
+		expect(response.headers.get("access-control-allow-origin")).toBeNull();
 	});
 
 	test("rejects doctor search requests without symptoms", async () => {

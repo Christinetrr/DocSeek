@@ -9,6 +9,7 @@ const DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
 export type RuntimeConfig = {
 	port: number;
 	databaseUrl: string;
+	corsAllowedOrigins: string[];
 	openAiApiKey: string;
 	openAiBaseUrl: string;
 	openAiEmbeddingModel: string;
@@ -52,6 +53,10 @@ export function getRuntimeConfig(env: NodeJS.ProcessEnv = process.env): RuntimeC
 
 	const port = Number(env.PORT ?? DEFAULT_PORT);
 	const databaseUrl = env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+	const corsAllowedOrigins = (env.CORS_ALLOWED_ORIGINS ?? "")
+		.split(",")
+		.map((origin) => origin.trim())
+		.filter(Boolean);
 	const openAiApiKey = env.OPENAI_API_KEY?.trim() ?? "";
 	const openAiBaseUrl = (env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE_URL).replace(/\/$/, "");
 	const openAiEmbeddingModel =
@@ -66,6 +71,7 @@ export function getRuntimeConfig(env: NodeJS.ProcessEnv = process.env): RuntimeC
 	return {
 		port,
 		databaseUrl,
+		corsAllowedOrigins,
 		openAiApiKey,
 		openAiBaseUrl,
 		openAiEmbeddingModel,

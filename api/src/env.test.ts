@@ -49,6 +49,7 @@ describe("API env", () => {
 		const config = getRuntimeConfig({
 			PORT: "4010",
 			DATABASE_URL: "postgresql://configured-db",
+			CORS_ALLOWED_ORIGINS: "http://localhost:5173, http://127.0.0.1:5173",
 			OPENAI_API_KEY: "configured-key",
 			OPENAI_BASE_URL: "https://example.com/v1/",
 			OPENAI_EMBEDDING_MODEL: "text-embedding-3-large",
@@ -57,6 +58,7 @@ describe("API env", () => {
 		expect(config).toEqual({
 			port: 4010,
 			databaseUrl: "postgresql://configured-db",
+			corsAllowedOrigins: ["http://localhost:5173", "http://127.0.0.1:5173"],
 			openAiApiKey: "configured-key",
 			openAiBaseUrl: "https://example.com/v1",
 			openAiEmbeddingModel: "text-embedding-3-large",
