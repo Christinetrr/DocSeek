@@ -336,9 +336,6 @@ export function DoctorRecommendationCard({
 							{getMatchQualityLabel(activeDoctor.match_score)}
 						</span>
 					</div>
-					<p className="match-reason-text">
-						This doctor specializes in:
-					</p>
 					<ul className="match-specialty-list">
 						{formatMatchedSpecialties(activeDoctor.matched_specialty).map(
 							(specialty) => (

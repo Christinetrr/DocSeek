@@ -540,12 +540,6 @@ a {
 	white-space: nowrap;
 }
 
-.match-reason-text {
-	margin: 0 0 0.5rem;
-	color: var(--text-muted);
-	font-size: 0.9rem;
-}
-
 .match-specialty-list {
 	margin: 0;
 	padding: 0;
