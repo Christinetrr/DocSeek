@@ -2,11 +2,15 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeft,
 	ArrowRight,
+	Bookmark,
+	BookmarkCheck,
 	Filter,
 	Search,
 	Stethoscope,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { useSavedPhysicians } from "../hooks/useSavedPhysicians";
+import { AppNav } from "./AppNav";
 
 const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -52,6 +56,8 @@ type SearchFiltersFormProps = {
 
 type SearchPageShellProps = {
 	children: ReactNode;
+	/** Set to false in tests to avoid router/hook requirements. Defaults to true. */
+	showNav?: boolean;
 };
 
 type SearchFormProps = {
@@ -74,6 +80,9 @@ type DoctorRecommendationCardProps = {
 	doctors: Doctor[];
 	activeDoctorIndex: number;
 	onNextDoctor: () => void;
+	isSaved?: boolean;
+	onSave?: () => void;
+	onUnsave?: () => void;
 };
 
 type ResultsHeaderProps = {
@@ -187,12 +196,16 @@ export async function searchDoctors(
 	return payload.doctors;
 }
 
-export function SearchPageShell({ children }: SearchPageShellProps) {
+export function SearchPageShell({
+	children,
+	showNav = true,
+}: SearchPageShellProps) {
 	return (
 		<main className="app-shell">
 			<a className="skip-link" href="#page-content">
 				Skip to main content
 			</a>
+			{showNav ? <AppNav /> : null}
 			<div className="background-orb background-orb-left" aria-hidden="true" />
 			<div className="background-orb background-orb-right" aria-hidden="true" />
 			<div className="constellation constellation-top" aria-hidden="true" />
@@ -405,6 +418,9 @@ export function DoctorRecommendationCard({
 	doctors,
 	activeDoctorIndex,
 	onNextDoctor,
+	isSaved = false,
+	onSave,
+	onUnsave,
 }: DoctorRecommendationCardProps) {
 	const activeDoctor = doctors[activeDoctorIndex];
 	const hasNextDoctor = activeDoctorIndex < doctors.length - 1;
@@ -422,17 +438,43 @@ export function DoctorRecommendationCard({
 					</p>
 					<h2>{activeDoctor.full_name}</h2>
 				</div>
-				<p
-					className={
-						activeDoctor.accepting_new_patients
-							? "availability availability-open"
-							: "availability"
-					}
-				>
-					{activeDoctor.accepting_new_patients
-						? "Accepting new patients"
-						: "Check availability"}
-				</p>
+				<div className="doctor-card-header-actions">
+					{onSave && onUnsave ? (
+						<button
+							type="button"
+							className={`save-button ${isSaved ? "saved" : ""}`}
+							onClick={() => (isSaved ? onUnsave() : onSave())}
+							aria-label={
+								isSaved
+									? `Remove ${activeDoctor.full_name} from saved physicians`
+									: `Save ${activeDoctor.full_name} for later`
+							}
+						>
+							{isSaved ? (
+								<>
+									<BookmarkCheck aria-hidden size={20} strokeWidth={2} />
+									Saved
+								</>
+							) : (
+								<>
+									<Bookmark aria-hidden size={20} strokeWidth={2} />
+									Save for later
+								</>
+							)}
+						</button>
+					) : null}
+					<p
+						className={
+							activeDoctor.accepting_new_patients
+								? "availability availability-open"
+								: "availability"
+						}
+					>
+						{activeDoctor.accepting_new_patients
+							? "Accepting new patients"
+							: "Check availability"}
+					</p>
+				</div>
 			</div>
 			<p className="doctor-meta">
 				{activeDoctor.primary_specialty ?? "Specialty not listed"}
@@ -574,6 +616,7 @@ export function ResultsHeader({
 	includeBackLink = true,
 	initialSymptoms,
 	activeFilters,
+	onRefineFilters,
 }: ResultsHeaderProps) {
 	return (
 		<header className="results-header">
@@ -631,6 +674,7 @@ export function ResultsPage({
 	includeBackLink = false,
 }: ResultsPageProps) {
 	const navigate = useNavigate();
+	const savedPhysicians = useSavedPhysicians();
 	const [doctors, setDoctors] = useState<Doctor[]>([]);
 	const [activeDoctorIndex, setActiveDoctorIndex] = useState(0);
 	const [errorMessage, setErrorMessage] = useState("");
@@ -754,6 +798,14 @@ export function ResultsPage({
 						activeDoctorIndex={activeDoctorIndex}
 						onNextDoctor={() =>
 							setActiveDoctorIndex((currentIndex) => currentIndex + 1)
+						}
+						isSaved={savedPhysicians.isSaved(doctors[activeDoctorIndex]?.id)}
+						onSave={() =>
+							doctors[activeDoctorIndex] &&
+							savedPhysicians.addSavedDoctor(doctors[activeDoctorIndex])
+						}
+						onUnsave={() =>
+							savedPhysicians.removeSavedDoctor(doctors[activeDoctorIndex]?.id)
 						}
 					/>
 				) : null}

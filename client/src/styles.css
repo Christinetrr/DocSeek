@@ -122,6 +122,61 @@ a {
 	transform: translateY(0);
 }
 
+.app-nav {
+	position: absolute;
+	top: 1rem;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	padding: 0.65rem 1.25rem;
+	border-radius: 999px;
+	border: 1px solid rgba(69, 108, 191, 0.25);
+	background: rgba(12, 22, 52, 0.85);
+	backdrop-filter: blur(8px);
+}
+
+.app-nav-brand {
+	font-weight: 600;
+	font-size: 1rem;
+	color: var(--text-soft);
+	letter-spacing: -0.02em;
+}
+
+.app-nav-brand:hover,
+.app-nav-brand:focus-visible {
+	color: var(--teal);
+}
+
+.app-nav-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.92rem;
+	color: var(--text-soft);
+}
+
+.app-nav-link:hover,
+.app-nav-link:focus-visible {
+	color: var(--teal);
+}
+
+.app-nav-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.25rem;
+	height: 1.25rem;
+	padding: 0 0.35rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	border-radius: 999px;
+	background: rgba(32, 216, 255, 0.2);
+	color: var(--teal);
+}
+
 .hero {
 	position: relative;
 	width: min(1100px, 100%);
@@ -547,6 +602,47 @@ a {
 	line-height: 1.35;
 }
 
+.saved-page-badge {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.95rem 1.2rem;
+	border-radius: 1.4rem;
+	border: 1px solid rgba(38, 214, 255, 0.16);
+	background: linear-gradient(
+		180deg,
+		rgba(13, 23, 50, 0.92),
+		rgba(12, 20, 43, 0.86)
+	);
+	color: rgba(32, 216, 255, 0.9);
+	font-size: 1rem;
+}
+
+.saved-empty {
+	margin-top: 2rem;
+	padding: 2rem;
+	border-radius: 1.5rem;
+	border: 1px solid var(--line);
+	background: rgba(12, 22, 52, 0.5);
+	text-align: center;
+	color: var(--text-soft);
+}
+
+.saved-empty p {
+	margin: 0 0 0.5rem;
+}
+
+.saved-empty-link {
+	color: var(--teal);
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+}
+
+.saved-empty-link:hover,
+.saved-empty-link:focus-visible {
+	color: #4fb4ff;
+}
+
 .doctor-card {
 	width: min(100%, 78rem);
 	margin-top: 1.75rem;
@@ -570,6 +666,49 @@ a {
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: 1rem;
+}
+
+.doctor-card-header-actions {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.75rem;
+}
+
+.save-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.6rem 1rem;
+	border-radius: 999px;
+	border: 1px solid rgba(69, 108, 191, 0.3);
+	background: rgba(25, 39, 81, 0.76);
+	color: var(--text);
+	font-size: 0.92rem;
+	cursor: pointer;
+	transition:
+		transform 180ms ease,
+		border-color 180ms ease,
+		background 180ms ease;
+}
+
+.save-button:hover,
+.save-button:focus-visible {
+	transform: translateY(-1px);
+	border-color: rgba(80, 165, 255, 0.5);
+	background: rgba(31, 49, 100, 0.92);
+}
+
+.save-button.saved {
+	color: #8fffd3;
+	border-color: rgba(21, 96, 78, 0.4);
+	background: rgba(21, 96, 78, 0.24);
+}
+
+.save-button.saved:hover,
+.save-button.saved:focus-visible {
+	border-color: rgba(21, 96, 78, 0.6);
+	background: rgba(21, 96, 78, 0.36);
 }
 
 .result-count,

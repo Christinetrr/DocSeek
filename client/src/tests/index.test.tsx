@@ -173,7 +173,7 @@ describe("frontend page flow", () => {
 
 	test("renders a skip link for keyboard users", () => {
 		render(
-			<SearchPageShell>
+			<SearchPageShell showNav={false}>
 				<div>Content</div>
 			</SearchPageShell>,
 		);
@@ -295,5 +295,103 @@ describe("frontend page flow", () => {
 				})
 				.getAttribute("disabled"),
 		).not.toBeNull();
+	});
+
+	test("doctor card shows Save for later when callbacks provided and not saved", () => {
+		const onSave = vi.fn();
+		const onUnsave = vi.fn();
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+				isSaved={false}
+				onSave={onSave}
+				onUnsave={onUnsave}
+			/>,
+		);
+
+		const saveButton = screen.getByRole("button", {
+			name: "Save Dr. Avery Quinn for later",
+		});
+		expect(saveButton).toBeTruthy();
+		expect(saveButton.textContent).toContain("Save for later");
+		fireEvent.click(saveButton);
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(onUnsave).not.toHaveBeenCalled();
+	});
+
+	test("doctor card shows Saved and calls onUnsave when clicked", () => {
+		const onSave = vi.fn();
+		const onUnsave = vi.fn();
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+				isSaved={true}
+				onSave={onSave}
+				onUnsave={onUnsave}
+			/>,
+		);
+
+		const unsaveButton = screen.getByRole("button", {
+			name: "Remove Dr. Avery Quinn from saved physicians",
+		});
+		expect(unsaveButton).toBeTruthy();
+		expect(unsaveButton.textContent).toContain("Saved");
+		fireEvent.click(unsaveButton);
+		expect(onUnsave).toHaveBeenCalledTimes(1);
+		expect(onSave).not.toHaveBeenCalled();
+	});
+
+	test("doctor card hides save button when onSave/onUnsave not provided", () => {
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+			/>,
+		);
+
+		expect(
+			screen.queryByRole("button", { name: /Save .+ for later/ }),
+		).toBeNull();
+		expect(
+			screen.queryByRole("button", { name: /Remove .+ from saved/ }),
+		).toBeNull();
 	});
 });
