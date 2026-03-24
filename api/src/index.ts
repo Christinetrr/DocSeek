@@ -34,6 +34,12 @@ export function createApp({
 		const body = await c.req.json().catch(() => null);
 		const symptoms = typeof body?.symptoms === "string" ? body.symptoms.trim() : "";
 		const limit = body?.limit;
+		const location =
+			typeof body?.location === "string" ? body.location.trim() || undefined : undefined;
+		const onlyAcceptingNewPatients =
+			typeof body?.onlyAcceptingNewPatients === "boolean"
+				? body.onlyAcceptingNewPatients
+				: undefined;
 
 		if (!symptoms) {
 			return c.json(
@@ -53,6 +59,10 @@ export function createApp({
 				symptoms,
 				options: {
 					limit,
+					filters: {
+						location: location ?? null,
+						onlyAcceptingNewPatients,
+					},
 				},
 			});
 

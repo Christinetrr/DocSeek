@@ -1,5 +1,11 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Search, Stethoscope } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import {
+	ArrowLeft,
+	ArrowRight,
+	Filter,
+	Search,
+	Stethoscope,
+} from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 
 const API_BASE_URL =
@@ -26,9 +32,22 @@ type DoctorSearchResponse = {
 	doctors: Doctor[];
 };
 
+export type SearchFilters = {
+	location?: string;
+	onlyAcceptingNewPatients?: boolean;
+};
+
 type SearchDoctorsOptions = {
 	apiBaseUrl?: string;
 	fetchImpl?: typeof fetch;
+	filters?: SearchFilters;
+};
+
+type SearchFiltersFormProps = {
+	location: string;
+	onlyAcceptingNewPatients: boolean;
+	onLocationChange: (value: string) => void;
+	onOnlyAcceptingChange: (value: boolean) => void;
 };
 
 type SearchPageShellProps = {
@@ -44,10 +63,11 @@ type SearchFormProps = {
 
 type SearchHeroProps = SearchFormProps & {
 	errorMessage?: string;
+	filters?: SearchFiltersFormProps;
 };
 
 type HomePageProps = {
-	navigateToResults: (symptoms: string) => void;
+	navigateToResults: (symptoms: string, filters?: SearchFilters) => void;
 };
 
 type DoctorRecommendationCardProps = {
@@ -59,14 +79,32 @@ type DoctorRecommendationCardProps = {
 type ResultsHeaderProps = {
 	includeBackLink?: boolean;
 	initialSymptoms: string;
+	activeFilters?: SearchFilters;
+	onRefineFilters?: () => void;
 };
 
 type ResultsSearchSummaryProps = {
 	symptoms: string;
 };
 
+type ResultsActiveFiltersProps = {
+	filters: SearchFilters;
+	onRefine: () => void;
+};
+
+type ResultsRefineFiltersProps = {
+	location: string;
+	onlyAcceptingNewPatients: boolean;
+	onLocationChange: (value: string) => void;
+	onOnlyAcceptingChange: (value: boolean) => void;
+	onApply: () => void;
+	onCancel: () => void;
+	isRefining: boolean;
+};
+
 type ResultsPageProps = {
 	initialSymptoms: string;
+	initialFilters?: SearchFilters;
 	searchDoctorsImpl?: typeof searchDoctors;
 	includeBackLink?: boolean;
 };
@@ -79,11 +117,18 @@ export function normalizeSymptoms(symptoms: string) {
 	return symptoms.trim();
 }
 
-export function getResultsNavigation(symptoms: string) {
+export function getResultsNavigation(
+	symptoms: string,
+	filters?: SearchFilters,
+) {
 	return {
 		to: "/results" as const,
 		search: {
 			symptoms: normalizeSymptoms(symptoms),
+			...(filters?.location && { location: filters.location }),
+			...(filters?.onlyAcceptingNewPatients && {
+				onlyAcceptingNewPatients: "true",
+			}),
 		},
 	};
 }
@@ -96,7 +141,11 @@ export function getNextRecommendationLabel(hasNextDoctor: boolean) {
 
 export async function searchDoctors(
 	symptoms: string,
-	{ apiBaseUrl = API_BASE_URL, fetchImpl = fetch }: SearchDoctorsOptions = {},
+	{
+		apiBaseUrl = API_BASE_URL,
+		fetchImpl = fetch,
+		filters,
+	}: SearchDoctorsOptions = {},
 ): Promise<Doctor[]> {
 	const trimmedSymptoms = normalizeSymptoms(symptoms);
 	if (!trimmedSymptoms) {
@@ -105,14 +154,18 @@ export async function searchDoctors(
 		);
 	}
 
+	const body: Record<string, unknown> = { symptoms: trimmedSymptoms };
+	if (filters) {
+		if (filters.location) body.location = filters.location;
+		if (filters.onlyAcceptingNewPatients) body.onlyAcceptingNewPatients = true;
+	}
+
 	const response = await fetchImpl(getDoctorSearchUrl(apiBaseUrl), {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({
-			symptoms: trimmedSymptoms,
-		}),
+		body: JSON.stringify(body),
 	});
 
 	const payload = (await response.json()) as
@@ -194,12 +247,61 @@ export function SearchForm({
 	);
 }
 
+export function SearchFiltersForm({
+	location,
+	onlyAcceptingNewPatients,
+	onLocationChange,
+	onOnlyAcceptingChange,
+}: SearchFiltersFormProps) {
+	return (
+		<fieldset className="search-filters" aria-labelledby="filter-heading">
+			<legend id="filter-heading" className="filter-heading">
+				Filter by your preferences
+			</legend>
+			<div className="filter-fields">
+				<div className="filter-field">
+					<label htmlFor="filter-location">
+						Location (city, state, or ZIP)
+					</label>
+					<input
+						id="filter-location"
+						type="text"
+						value={location}
+						onChange={(e) => onLocationChange(e.target.value)}
+						placeholder="e.g. Pittsburgh, PA"
+						aria-describedby="filter-location-hint"
+					/>
+					<span id="filter-location-hint" className="filter-hint">
+						Show doctors near this area
+					</span>
+				</div>
+				<div className="filter-field filter-checkbox">
+					<input
+						id="filter-accepting"
+						type="checkbox"
+						checked={onlyAcceptingNewPatients}
+						onChange={(e) => onOnlyAcceptingChange(e.target.checked)}
+						aria-describedby="filter-accepting-hint"
+					/>
+					<label htmlFor="filter-accepting">
+						Only show doctors accepting new patients
+					</label>
+					<span id="filter-accepting-hint" className="filter-hint">
+						Filter by availability
+					</span>
+				</div>
+			</div>
+		</fieldset>
+	);
+}
+
 export function SearchHero({
 	symptoms,
 	onSymptomsChange,
 	onSubmit,
 	isLoading = false,
 	errorMessage,
+	filters,
 }: SearchHeroProps) {
 	return (
 		<section className="hero">
@@ -221,6 +323,15 @@ export function SearchHero({
 				onSubmit={onSubmit}
 				isLoading={isLoading}
 			/>
+
+			{filters ? (
+				<SearchFiltersForm
+					location={filters.location}
+					onlyAcceptingNewPatients={filters.onlyAcceptingNewPatients}
+					onLocationChange={filters.onLocationChange}
+					onOnlyAcceptingChange={filters.onOnlyAcceptingChange}
+				/>
+			) : null}
 
 			<div className="suggestion-list">
 				{SUGGESTED_SYMPTOMS.map((suggestion) => (
@@ -246,6 +357,9 @@ export function SearchHero({
 
 export function HomePage({ navigateToResults }: HomePageProps) {
 	const [symptoms, setSymptoms] = useState("");
+	const [location, setLocation] = useState("");
+	const [onlyAcceptingNewPatients, setOnlyAcceptingNewPatients] =
+		useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -260,7 +374,13 @@ export function HomePage({ navigateToResults }: HomePageProps) {
 		}
 
 		setErrorMessage("");
-		navigateToResults(trimmedSymptoms);
+		const filters: SearchFilters = {};
+		if (location.trim()) filters.location = location.trim();
+		if (onlyAcceptingNewPatients) filters.onlyAcceptingNewPatients = true;
+		navigateToResults(
+			trimmedSymptoms,
+			Object.keys(filters).length ? filters : undefined,
+		);
 	}
 
 	return (
@@ -270,6 +390,12 @@ export function HomePage({ navigateToResults }: HomePageProps) {
 				onSymptomsChange={setSymptoms}
 				onSubmit={handleSubmit}
 				errorMessage={errorMessage}
+				filters={{
+					location,
+					onlyAcceptingNewPatients,
+					onLocationChange: setLocation,
+					onOnlyAcceptingChange: setOnlyAcceptingNewPatients,
+				}}
 			/>
 		</SearchPageShell>
 	);
@@ -353,9 +479,101 @@ export function DoctorRecommendationCard({
 	);
 }
 
+export function ResultsActiveFilters({
+	filters,
+	onRefine,
+}: ResultsActiveFiltersProps) {
+	const labels: string[] = [];
+	if (filters.location) labels.push(filters.location);
+	if (filters.onlyAcceptingNewPatients) labels.push("Accepting new patients");
+
+	if (labels.length === 0) return null;
+
+	return (
+		<div className="results-active-filters">
+			<Filter aria-hidden="true" size={16} strokeWidth={2} />
+			<span className="results-active-filters-label">
+				Filtered by: {labels.join(" • ")}
+			</span>
+			<button
+				type="button"
+				className="results-refine-link"
+				onClick={onRefine}
+				aria-label="Refine location and availability filters"
+			>
+				Refine filters
+			</button>
+		</div>
+	);
+}
+
+export function ResultsRefineFilters({
+	location,
+	onlyAcceptingNewPatients,
+	onLocationChange,
+	onOnlyAcceptingChange,
+	onApply,
+	onCancel,
+	isRefining,
+}: ResultsRefineFiltersProps) {
+	if (!isRefining) return null;
+
+	return (
+		<div className="results-refine-filters">
+			<h3 id="refine-heading" className="refine-heading">
+				Refine your filters
+			</h3>
+			<div className="refine-fields">
+				<div className="filter-field">
+					<label htmlFor="refine-location">
+						Location (city, state, or ZIP)
+					</label>
+					<input
+						id="refine-location"
+						type="text"
+						value={location}
+						onChange={(e) => onLocationChange(e.target.value)}
+						placeholder="e.g. Pittsburgh, PA"
+					/>
+				</div>
+				<div className="filter-field filter-checkbox">
+					<input
+						id="refine-accepting"
+						type="checkbox"
+						checked={onlyAcceptingNewPatients}
+						onChange={(e) => onOnlyAcceptingChange(e.target.checked)}
+					/>
+					<label htmlFor="refine-accepting">
+						Only show doctors accepting new patients
+					</label>
+				</div>
+			</div>
+			<div className="refine-actions">
+				<button
+					type="button"
+					className="primary-action"
+					onClick={onApply}
+					aria-label="Apply refined filters"
+				>
+					Apply filters
+				</button>
+				<button
+					type="button"
+					className="secondary-action"
+					onClick={onCancel}
+					aria-label="Cancel refining filters"
+				>
+					Cancel
+				</button>
+			</div>
+		</div>
+	);
+}
+
 export function ResultsHeader({
 	includeBackLink = true,
 	initialSymptoms,
+	activeFilters,
 }: ResultsHeaderProps) {
 	return (
 		<header className="results-header">
@@ -368,6 +586,13 @@ export function ResultsHeader({
 				) : null}
 				<ResultsSearchSummary symptoms={initialSymptoms} />
 			</div>
+			{activeFilters &&
+			(activeFilters.location || activeFilters.onlyAcceptingNewPatients) ? (
+				<ResultsActiveFilters
+					filters={activeFilters}
+					onRefine={onRefineFilters ?? (() => {})}
+				/>
+			) : null}
 			<div className="results-copy">
 				<p className="results-kicker">Recommended doctors</p>
 				<h1 className="results-title">Recommended doctors</h1>
@@ -401,13 +626,27 @@ export function ResultsSearchSummary({ symptoms }: ResultsSearchSummaryProps) {
 
 export function ResultsPage({
 	initialSymptoms,
+	initialFilters,
 	searchDoctorsImpl = searchDoctors,
 	includeBackLink = false,
 }: ResultsPageProps) {
+	const navigate = useNavigate();
 	const [doctors, setDoctors] = useState<Doctor[]>([]);
 	const [activeDoctorIndex, setActiveDoctorIndex] = useState(0);
 	const [errorMessage, setErrorMessage] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+	const [isRefining, setIsRefining] = useState(false);
+	const [refineLocation, setRefineLocation] = useState(
+		initialFilters?.location ?? "",
+	);
+	const [refineOnlyAccepting, setRefineOnlyAccepting] = useState(
+		initialFilters?.onlyAcceptingNewPatients ?? false,
+	);
+
+	useEffect(() => {
+		setRefineLocation(initialFilters?.location ?? "");
+		setRefineOnlyAccepting(initialFilters?.onlyAcceptingNewPatients ?? false);
+	}, [initialFilters]);
 
 	useEffect(() => {
 		let ignore = false;
@@ -417,7 +656,9 @@ export function ResultsPage({
 			setErrorMessage("");
 
 			try {
-				const matchedDoctors = await searchDoctorsImpl(initialSymptoms);
+				const matchedDoctors = await searchDoctorsImpl(initialSymptoms, {
+					filters: initialFilters,
+				});
 
 				if (ignore) {
 					return;
@@ -428,7 +669,7 @@ export function ResultsPage({
 
 				if (matchedDoctors.length === 0) {
 					setErrorMessage(
-						"No doctors matched those symptoms. Try adding more detail.",
+						"No doctors matched those symptoms. Try adding more detail or relaxing your filters.",
 					);
 				}
 			} catch (error) {
@@ -455,7 +696,7 @@ export function ResultsPage({
 		return () => {
 			ignore = true;
 		};
-	}, [initialSymptoms, searchDoctorsImpl]);
+	}, [initialSymptoms, initialFilters, searchDoctorsImpl]);
 
 	return (
 		<SearchPageShell>
@@ -467,6 +708,26 @@ export function ResultsPage({
 				<ResultsHeader
 					includeBackLink={includeBackLink}
 					initialSymptoms={initialSymptoms}
+					activeFilters={initialFilters}
+					onRefineFilters={
+						initialFilters ? () => setIsRefining(true) : undefined
+					}
+				/>
+
+				<ResultsRefineFilters
+					location={refineLocation}
+					onlyAcceptingNewPatients={refineOnlyAccepting}
+					onLocationChange={setRefineLocation}
+					onOnlyAcceptingChange={setRefineOnlyAccepting}
+					onApply={() => {
+						const filters: SearchFilters = {};
+						if (refineLocation.trim()) filters.location = refineLocation.trim();
+						if (refineOnlyAccepting) filters.onlyAcceptingNewPatients = true;
+						navigate(getResultsNavigation(initialSymptoms, filters));
+						setIsRefining(false);
+					}}
+					onCancel={() => setIsRefining(false)}
+					isRefining={isRefining}
 				/>
 
 				<div id="results-status" className="sr-only" aria-live="polite">

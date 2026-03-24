@@ -8,7 +8,9 @@ import {
 	getNextRecommendationLabel,
 	getResultsNavigation,
 	normalizeSymptoms,
+	ResultsActiveFilters,
 	ResultsHeader,
+	SearchFiltersForm,
 	SearchHero,
 	SearchPageShell,
 	SUGGESTED_SYMPTOMS,
@@ -106,6 +108,49 @@ describe("frontend page flow", () => {
 		});
 	});
 
+	test("getResultsNavigation includes filter params when provided", () => {
+		expect(
+			getResultsNavigation("migraines", {
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: true,
+			}),
+		).toEqual({
+			to: "/results",
+			search: {
+				symptoms: "migraines",
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: "true",
+			},
+		});
+	});
+
+	test("searchDoctors sends filter params in the request body when provided", async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ doctors: [] }),
+		});
+
+		await searchDoctors("headaches", {
+			apiBaseUrl: "http://localhost:3000",
+			fetchImpl: fetchMock as typeof fetch,
+			filters: {
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: true,
+			},
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"http://localhost:3000/doctors/search",
+			expect.objectContaining({
+				body: JSON.stringify({
+					symptoms: "headaches",
+					location: "Pittsburgh",
+					onlyAcceptingNewPatients: true,
+				}),
+			}),
+		);
+	});
+
 	test("renders the landing hero with the responsive helper copy hook", () => {
 		render(
 			<SearchHero symptoms="" onSymptomsChange={vi.fn()} onSubmit={vi.fn()} />,
@@ -169,6 +214,50 @@ describe("frontend page flow", () => {
 		).toBeTruthy();
 		expect(screen.getByText("persistent cough")).toBeTruthy();
 		expect(document.querySelector(".results-header-top")).toBeTruthy();
+	});
+
+	test("renders filter form with location and availability options", () => {
+		render(
+			<SearchFiltersForm
+				location="Pittsburgh"
+				onlyAcceptingNewPatients={true}
+				onLocationChange={vi.fn()}
+				onOnlyAcceptingChange={vi.fn()}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("group", { name: /Filter by your preferences/ }),
+		).toBeTruthy();
+		expect(
+			screen.getByLabelText(/Location \(city, state, or ZIP\)/),
+		).toBeTruthy();
+		expect(
+			screen.getByLabelText(/Only show doctors accepting new patients/),
+		).toBeTruthy();
+	});
+
+	test("renders active filters when location and availability are applied", () => {
+		const onRefine = vi.fn();
+		render(
+			<ResultsActiveFilters
+				filters={{
+					location: "Pittsburgh, PA",
+					onlyAcceptingNewPatients: true,
+				}}
+				onRefine={onRefine}
+			/>,
+		);
+
+		expect(
+			screen.getByText(/Filtered by: Pittsburgh, PA • Accepting new patients/),
+		).toBeTruthy();
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: /Refine location and availability filters/,
+			}),
+		);
+		expect(onRefine).toHaveBeenCalledTimes(1);
 	});
 
 	test("renders the doctor card header tag and actions with responsive hook classes", () => {

@@ -26,8 +26,14 @@ type EmbeddingsResponse = {
 	}>;
 };
 
+export type SearchFilters = {
+	location?: string | null;
+	onlyAcceptingNewPatients?: boolean;
+};
+
 type SearchDoctorsOptions = {
 	limit?: number;
+	filters?: SearchFilters;
 };
 
 type SearchDoctorsParams = {
@@ -97,6 +103,14 @@ export function createDoctorSearchService(
 
 	return async ({ symptoms, options }) => {
 		const limit = normalizeSearchLimit(options?.limit);
+		const filters = options?.filters ?? {};
+		const locationFilter =
+			typeof filters.location === "string" && filters.location.trim()
+				? filters.location.trim()
+				: null;
+		const onlyAccepting =
+			filters.onlyAcceptingNewPatients === true ? true : null;
+
 		const embedding = await requestEmbedding(symptoms, config);
 		const vectorLiteral = formatVectorLiteral(embedding);
 
@@ -105,6 +119,8 @@ export function createDoctorSearchService(
 			FROM doctor_search_embeddings dse
 			INNER JOIN doctors d ON d.id = dse.doctor_id
 			WHERE dse.embedding IS NOT NULL
+			AND (${locationFilter}::text IS NULL OR d.primary_location ILIKE '%' || ${locationFilter} || '%')
+			AND (${onlyAccepting}::boolean IS NULL OR d.accepting_new_patients = true)
 			ORDER BY dse.embedding <=> ${vectorLiteral}::vector
 			LIMIT ${limit}
 		`;
