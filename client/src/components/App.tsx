@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Search, Stethoscope } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { calculateDistance, formatDistance } from "../utils/distance";
 
 const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -20,15 +21,48 @@ export type Doctor = {
 	book_appointment_url: string | null;
 	primary_location: string | null;
 	primary_phone: string | null;
+	latitude: number | null;
+	longitude: number | null;
+};
+
+type UserLocation = {
+	latitude: number;
+	longitude: number;
 };
 
 type DoctorSearchResponse = {
 	doctors: Doctor[];
 };
 
+type SymptomValidationResponse = {
+	isDescriptiveEnough: boolean;
+	reasoning?: string;
+};
+
+export type SymptomValidationMessage = {
+	role: "user" | "assistant";
+	content: string;
+};
+
 type SearchDoctorsOptions = {
 	apiBaseUrl?: string;
 	fetchImpl?: typeof fetch;
+};
+
+type ValidateSymptomsOptions = SearchDoctorsOptions & {
+	history?: SymptomValidationMessage[];
+};
+
+type ValidateSymptomsImplementation = (
+	symptoms: string,
+	options?: Pick<ValidateSymptomsOptions, "history">,
+) => Promise<SymptomValidationResponse>;
+
+type ResolveSymptomsSubmissionOptions = {
+	attemptCount?: number;
+	maxValidationAttempts?: number;
+	validationHistory?: SymptomValidationMessage[];
+	validateSymptomsImpl?: ValidateSymptomsImplementation;
 };
 
 type SearchPageShellProps = {
@@ -40,6 +74,7 @@ type SearchFormProps = {
 	onSymptomsChange: (value: string) => void;
 	onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 	isLoading?: boolean;
+	validationMessage?: string;
 };
 
 type SearchHeroProps = SearchFormProps & {
@@ -54,6 +89,7 @@ type DoctorRecommendationCardProps = {
 	doctors: Doctor[];
 	activeDoctorIndex: number;
 	onNextDoctor: () => void;
+	userLocation: UserLocation | null;
 };
 
 type ResultsHeaderProps = {
@@ -75,6 +111,10 @@ export function getDoctorSearchUrl(apiBaseUrl = API_BASE_URL) {
 	return `${apiBaseUrl}/doctors/search`;
 }
 
+export function getSymptomValidationUrl(apiBaseUrl = API_BASE_URL) {
+	return `${apiBaseUrl}/symptoms/validate`;
+}
+
 export function normalizeSymptoms(symptoms: string) {
 	return symptoms.trim();
 }
@@ -86,6 +126,24 @@ export function getResultsNavigation(symptoms: string) {
 			symptoms: normalizeSymptoms(symptoms),
 		},
 	};
+}
+
+export async function submitFeedback(
+	doctorId: number,
+	rating: number,
+	comment: string,
+	{ apiBaseUrl = API_BASE_URL, fetchImpl = fetch }: SearchDoctorsOptions = {},
+): Promise<void> {
+	const response = await fetchImpl(`${apiBaseUrl}/doctors/${doctorId}/feedback`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ rating, comment: comment || undefined }),
+	});
+
+	if (!response.ok) {
+		const payload = (await response.json()) as { error?: string };
+		throw new Error(payload.error ?? "Failed to submit feedback.");
+	}
 }
 
 export function getNextRecommendationLabel(hasNextDoctor: boolean) {
@@ -134,6 +192,124 @@ export async function searchDoctors(
 	return payload.doctors;
 }
 
+export async function validateSymptoms(
+	symptoms: string,
+	{
+		apiBaseUrl = API_BASE_URL,
+		fetchImpl = fetch,
+		history = [],
+	}: ValidateSymptomsOptions = {},
+): Promise<SymptomValidationResponse> {
+	const trimmedSymptoms = normalizeSymptoms(symptoms);
+	if (!trimmedSymptoms) {
+		throw new Error(
+			"Enter your current symptoms to search for matching doctors.",
+		);
+	}
+
+	const response = await fetchImpl(getSymptomValidationUrl(apiBaseUrl), {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			symptoms: trimmedSymptoms,
+			history,
+		}),
+	});
+
+	const payload = (await response.json()) as
+		| SymptomValidationResponse
+		| { error?: string };
+
+	if (!response.ok) {
+		throw new Error(
+			"error" in payload && payload.error
+				? payload.error
+				: "Unable to validate your symptoms right now.",
+		);
+	}
+
+	if (!("isDescriptiveEnough" in payload)) {
+		throw new Error("Unable to validate your symptoms right now.");
+	}
+
+	if (payload.isDescriptiveEnough) {
+		return { isDescriptiveEnough: true };
+	}
+
+	return {
+		isDescriptiveEnough: false,
+		reasoning: payload.reasoning,
+	};
+}
+
+export async function resolveSymptomsSubmission(
+	symptoms: string,
+	{
+		attemptCount = 0,
+		maxValidationAttempts = 3,
+		validationHistory = [],
+		validateSymptomsImpl = validateSymptoms,
+	}: ResolveSymptomsSubmissionOptions = {},
+) {
+	const trimmedSymptoms = normalizeSymptoms(symptoms);
+
+	if (!trimmedSymptoms) {
+		return {
+			canNavigate: false,
+			errorMessage: "Enter your current symptoms to search for matching doctors.",
+			nextAttemptCount: attemptCount,
+			nextValidationHistory: validationHistory,
+		};
+	}
+
+	const validation = await validateSymptomsImpl(trimmedSymptoms, {
+		history: validationHistory,
+	});
+	const reasoning =
+		validation.reasoning ??
+		"Add a little more detail about the symptoms you are experiencing.";
+
+	if (!validation.isDescriptiveEnough) {
+		const nextAttemptCount = attemptCount + 1;
+		const nextValidationHistory = [
+			...validationHistory,
+			{
+				role: "user" as const,
+				content: trimmedSymptoms,
+			},
+			{
+				role: "assistant" as const,
+				content: reasoning,
+			},
+		];
+
+		if (nextAttemptCount >= maxValidationAttempts) {
+			return {
+				canNavigate: true,
+				symptoms: trimmedSymptoms,
+				nextAttemptCount: 0,
+				nextValidationHistory: [],
+			};
+		}
+
+		return {
+			canNavigate: false,
+			errorMessage: reasoning,
+			nextAttemptCount,
+			nextValidationHistory,
+		};
+	}
+
+	return {
+		canNavigate: true,
+		symptoms: trimmedSymptoms,
+		nextAttemptCount: 0,
+		nextValidationHistory: [],
+	};
+}
+
 export function SearchPageShell({ children }: SearchPageShellProps) {
 	return (
 		<main className="app-shell">
@@ -156,6 +332,7 @@ export function SearchForm({
 	onSymptomsChange,
 	onSubmit,
 	isLoading = false,
+	validationMessage,
 }: SearchFormProps) {
 	return (
 		<form className="search-form" onSubmit={onSubmit}>
@@ -178,6 +355,9 @@ export function SearchForm({
 						value={symptoms}
 						onChange={(event) => onSymptomsChange(event.target.value)}
 						placeholder="I have chest pains"
+						aria-describedby={
+							validationMessage ? "symptoms-validation-message" : undefined
+						}
 						required
 					/>
 				</div>
@@ -190,6 +370,15 @@ export function SearchForm({
 					<ArrowRight aria-hidden="true" size={34} strokeWidth={2.1} />
 				</button>
 			</div>
+			{validationMessage ? (
+				<p
+					id="symptoms-validation-message"
+					className="feedback-message"
+					role="alert"
+				>
+					{validationMessage}
+				</p>
+			) : null}
 		</form>
 	);
 }
@@ -220,6 +409,7 @@ export function SearchHero({
 				onSymptomsChange={onSymptomsChange}
 				onSubmit={onSubmit}
 				isLoading={isLoading}
+				validationMessage={errorMessage}
 			/>
 
 			<div className="suggestion-list">
@@ -234,12 +424,6 @@ export function SearchHero({
 					</button>
 				))}
 			</div>
-
-			{errorMessage ? (
-				<p className="feedback-message" role="alert">
-					{errorMessage}
-				</p>
-			) : null}
 		</section>
 	);
 }
@@ -247,31 +431,122 @@ export function SearchHero({
 export function HomePage({ navigateToResults }: HomePageProps) {
 	const [symptoms, setSymptoms] = useState("");
 	const [errorMessage, setErrorMessage] = useState("");
+	const [isValidating, setIsValidating] = useState(false);
+	const [validationAttemptCount, setValidationAttemptCount] = useState(0);
+	const [validationHistory, setValidationHistory] = useState<
+		SymptomValidationMessage[]
+	>([]);
 
-	function handleSubmit(event: FormEvent<HTMLFormElement>) {
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 
-		const trimmedSymptoms = normalizeSymptoms(symptoms);
-		if (!trimmedSymptoms) {
-			setErrorMessage(
-				"Enter your current symptoms to search for matching doctors.",
-			);
-			return;
-		}
-
+		setIsValidating(true);
 		setErrorMessage("");
-		navigateToResults(trimmedSymptoms);
+
+		try {
+			const result = await resolveSymptomsSubmission(symptoms, {
+				attemptCount: validationAttemptCount,
+				validationHistory,
+			});
+
+			setValidationAttemptCount(result.nextAttemptCount);
+			setValidationHistory(result.nextValidationHistory);
+
+			if (!result.canNavigate) {
+				setErrorMessage(result.errorMessage);
+				return;
+			}
+
+			navigateToResults(result.symptoms);
+		} catch (error) {
+			setErrorMessage(
+				error instanceof Error
+					? error.message
+					: "Unable to validate your symptoms right now.",
+			);
+		} finally {
+			setIsValidating(false);
+		}
 	}
 
 	return (
 		<SearchPageShell>
 			<SearchHero
 				symptoms={symptoms}
-				onSymptomsChange={setSymptoms}
+				onSymptomsChange={(value) => {
+					setSymptoms(value);
+				}}
 				onSubmit={handleSubmit}
 				errorMessage={errorMessage}
+				isLoading={isValidating}
 			/>
 		</SearchPageShell>
+	);
+}
+
+type FeedbackFormProps = {
+	doctorId: number;
+	submitFeedbackImpl?: typeof submitFeedback;
+};
+
+export function FeedbackForm({
+	doctorId,
+	submitFeedbackImpl = submitFeedback,
+}: FeedbackFormProps) {
+	const [rating, setRating] = useState(0);
+	const [comment, setComment] = useState("");
+	const [submitted, setSubmitted] = useState(false);
+	const [error, setError] = useState("");
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError("");
+		try {
+			await submitFeedbackImpl(doctorId, rating, comment);
+			setSubmitted(true);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to submit feedback.");
+		}
+	}
+
+	if (submitted) {
+		return (
+			<div className="feedback-section">
+				<p className="feedback-thanks">Thanks for your feedback!</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="feedback-section">
+			<p className="feedback-section-label">Rate your visit</p>
+			<form className="feedback-form" onSubmit={handleSubmit}>
+				<div className="star-row" role="group" aria-label="Rating">
+					{[1, 2, 3, 4, 5].map((n) => (
+						<button
+							key={n}
+							type="button"
+							className={`star-btn${rating >= n ? " star-btn-active" : ""}`}
+							onClick={() => setRating(n)}
+							aria-label={`${n} star${n > 1 ? "s" : ""}`}
+						>
+							★
+						</button>
+					))}
+				</div>
+				<textarea
+					className="feedback-comment"
+					placeholder="Optional comment…"
+					rows={2}
+					value={comment}
+					onChange={(e) => setComment(e.target.value)}
+				/>
+				{error ? <p className="feedback-error">{error}</p> : null}
+				<button className="secondary-action" type="submit" disabled={rating === 0}>
+					Submit feedback
+				</button>
+			</form>
+		</div>
 	);
 }
 
@@ -279,9 +554,22 @@ export function DoctorRecommendationCard({
 	doctors,
 	activeDoctorIndex,
 	onNextDoctor,
+	userLocation,
 }: DoctorRecommendationCardProps) {
 	const activeDoctor = doctors[activeDoctorIndex];
 	const hasNextDoctor = activeDoctorIndex < doctors.length - 1;
+
+	const distanceLabel =
+		userLocation && activeDoctor?.latitude != null && activeDoctor?.longitude != null
+			? formatDistance(
+					calculateDistance(
+						userLocation.latitude,
+						userLocation.longitude,
+						activeDoctor.latitude,
+						activeDoctor.longitude,
+					),
+				)
+			: null;
 
 	if (!activeDoctor) {
 		return null;
@@ -314,11 +602,15 @@ export function DoctorRecommendationCard({
 			<div className="doctor-details">
 				<p className="doctor-detail">
 					{activeDoctor.primary_location ?? "Location not listed"}
+					{distanceLabel ? (
+						<span className="distance-label"> · {distanceLabel}</span>
+					) : null}
 				</p>
 				<p className="doctor-detail">
 					{activeDoctor.primary_phone ?? "Phone number not listed"}
 				</p>
 			</div>
+			<FeedbackForm doctorId={activeDoctor.id} />
 			<div className="doctor-links">
 				{activeDoctor.profile_url ? (
 					<a
@@ -408,6 +700,18 @@ export function ResultsPage({
 	const [activeDoctorIndex, setActiveDoctorIndex] = useState(0);
 	const [errorMessage, setErrorMessage] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+	const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+
+	useEffect(() => {
+		navigator.geolocation.getCurrentPosition(
+			(pos) =>
+				setUserLocation({
+					latitude: pos.coords.latitude,
+					longitude: pos.coords.longitude,
+				}),
+			() => {},
+		);
+	}, []);
 
 	useEffect(() => {
 		let ignore = false;
@@ -494,6 +798,7 @@ export function ResultsPage({
 						onNextDoctor={() =>
 							setActiveDoctorIndex((currentIndex) => currentIndex + 1)
 						}
+						userLocation={userLocation}
 					/>
 				) : null}
 			</section>

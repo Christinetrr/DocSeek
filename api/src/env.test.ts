@@ -63,6 +63,7 @@ describe("API env", () => {
 			openAiBaseUrl: "https://example.com/v1",
 			openAiEmbeddingModel: "text-embedding-3-large",
 			openAiChatModel: "gpt-4o-mini",
+			openAiValidationModel: "gpt-4.1-mini",
 		});
 	});
 });
