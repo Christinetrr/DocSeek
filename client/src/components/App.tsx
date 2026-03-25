@@ -94,6 +94,10 @@ export function getNextRecommendationLabel(hasNextDoctor: boolean) {
 		: "You've reached the last recommendation";
 }
 
+export function direct_to_booking(doctor: Doctor): string | null {
+	return doctor.book_appointment_url ?? doctor.profile_url;
+}
+
 export async function searchDoctors(
 	symptoms: string,
 	{ apiBaseUrl = API_BASE_URL, fetchImpl = fetch }: SearchDoctorsOptions = {},
@@ -282,6 +286,9 @@ export function DoctorRecommendationCard({
 }: DoctorRecommendationCardProps) {
 	const activeDoctor = doctors[activeDoctorIndex];
 	const hasNextDoctor = activeDoctorIndex < doctors.length - 1;
+	const directBookingUrl = activeDoctor
+		? direct_to_booking(activeDoctor)
+		: null;
 
 	if (!activeDoctor) {
 		return null;
@@ -330,9 +337,9 @@ export function DoctorRecommendationCard({
 						View profile
 					</a>
 				) : null}
-				{activeDoctor.book_appointment_url ? (
+				{directBookingUrl ? (
 					<a
-						href={activeDoctor.book_appointment_url}
+						href={directBookingUrl}
 						target="_blank"
 						rel="noreferrer"
 						aria-label={`Book an appointment with ${activeDoctor.full_name} (opens in a new tab)`}

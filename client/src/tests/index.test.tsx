@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
 	DoctorRecommendationCard,
+	direct_to_booking,
 	getDoctorSearchUrl,
 	getNextRecommendationLabel,
 	getResultsNavigation,
@@ -92,6 +93,21 @@ describe("doctor search helpers", () => {
 
 	test("exposes the quick symptom suggestions in the designed order", () => {
 		expect(SUGGESTED_SYMPTOMS).toEqual(["Migraines", "MRI scan", "Broken leg"]);
+	});
+
+	test("falls back to profile_url for direct booking when book_appointment_url is missing", () => {
+		expect(
+			direct_to_booking({
+				id: 1,
+				full_name: "Dr. Avery Quinn",
+				primary_specialty: "Neurology",
+				accepting_new_patients: true,
+				profile_url: "https://example.com/doctors/avery-quinn",
+				book_appointment_url: null,
+				primary_location: "Pittsburgh, PA",
+				primary_phone: "412-555-0100",
+			}),
+		).toBe("https://example.com/doctors/avery-quinn");
 	});
 });
 
