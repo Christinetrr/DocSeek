@@ -119,6 +119,24 @@ export function getResultsNavigation(symptoms: string) {
 	};
 }
 
+export async function submitFeedback(
+	doctorId: number,
+	rating: number,
+	comment: string,
+	{ apiBaseUrl = API_BASE_URL, fetchImpl = fetch }: SearchDoctorsOptions = {},
+): Promise<void> {
+	const response = await fetchImpl(`${apiBaseUrl}/doctors/${doctorId}/feedback`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ rating, comment: comment || undefined }),
+	});
+
+	if (!response.ok) {
+		const payload = (await response.json()) as { error?: string };
+		throw new Error(payload.error ?? "Failed to submit feedback.");
+	}
+}
+
 export function getNextRecommendationLabel(hasNextDoctor: boolean) {
 	return hasNextDoctor
 		? "See the next recommended doctor"
@@ -457,6 +475,72 @@ export function HomePage({ navigateToResults }: HomePageProps) {
 	);
 }
 
+type FeedbackFormProps = {
+	doctorId: number;
+	submitFeedbackImpl?: typeof submitFeedback;
+};
+
+export function FeedbackForm({
+	doctorId,
+	submitFeedbackImpl = submitFeedback,
+}: FeedbackFormProps) {
+	const [rating, setRating] = useState(0);
+	const [comment, setComment] = useState("");
+	const [submitted, setSubmitted] = useState(false);
+	const [error, setError] = useState("");
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError("");
+		try {
+			await submitFeedbackImpl(doctorId, rating, comment);
+			setSubmitted(true);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to submit feedback.");
+		}
+	}
+
+	if (submitted) {
+		return (
+			<div className="feedback-section">
+				<p className="feedback-thanks">Thanks for your feedback!</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="feedback-section">
+			<p className="feedback-section-label">Rate your visit</p>
+			<form className="feedback-form" onSubmit={handleSubmit}>
+				<div className="star-row" role="group" aria-label="Rating">
+					{[1, 2, 3, 4, 5].map((n) => (
+						<button
+							key={n}
+							type="button"
+							className={`star-btn${rating >= n ? " star-btn-active" : ""}`}
+							onClick={() => setRating(n)}
+							aria-label={`${n} star${n > 1 ? "s" : ""}`}
+						>
+							★
+						</button>
+					))}
+				</div>
+				<textarea
+					className="feedback-comment"
+					placeholder="Optional comment…"
+					rows={2}
+					value={comment}
+					onChange={(e) => setComment(e.target.value)}
+				/>
+				{error ? <p className="feedback-error">{error}</p> : null}
+				<button className="secondary-action" type="submit" disabled={rating === 0}>
+					Submit feedback
+				</button>
+			</form>
+		</div>
+	);
+}
+
 export function DoctorRecommendationCard({
 	doctors,
 	activeDoctorIndex,
@@ -501,6 +585,7 @@ export function DoctorRecommendationCard({
 					{activeDoctor.primary_phone ?? "Phone number not listed"}
 				</p>
 			</div>
+			<FeedbackForm doctorId={activeDoctor.id} />
 			<div className="doctor-links">
 				{activeDoctor.profile_url ? (
 					<a
