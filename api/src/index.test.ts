@@ -92,7 +92,13 @@ describe("DocSeek API", () => {
 		const app = createApp({
 			searchService: async ({ symptoms, options }) => {
 				expect(symptoms).toBe("persistent headaches and migraines");
-				expect(options).toEqual({ limit: 5 });
+				expect(options).toEqual({
+					limit: 5,
+					filters: {
+						location: null,
+						onlyAcceptingNewPatients: undefined,
+					},
+				});
 				return [doctor];
 			},
 		});
@@ -113,6 +119,52 @@ describe("DocSeek API", () => {
 		expect(body).toEqual({
 			doctors: [doctor],
 		});
+	});
+
+	test("passes filter parameters to the search service", async () => {
+		const doctor = {
+			id: 2,
+			source_provider_id: 1002,
+			npi: null,
+			full_name: "Dr. John Smith",
+			first_name: "John",
+			middle_name: null,
+			last_name: "Smith",
+			suffix: null,
+			primary_specialty: "Cardiology",
+			accepting_new_patients: true,
+			profile_url: null,
+			ratings_url: null,
+			book_appointment_url: null,
+			primary_location: "Monroeville, PA",
+			primary_phone: null,
+			created_at: "2026-03-23T00:00:00.000Z",
+		};
+
+		const app = createApp({
+			searchService: async ({ symptoms, options }) => {
+				expect(symptoms).toBe("chest pain");
+				expect(options?.filters?.location).toBe("Pittsburgh");
+				expect(options?.filters?.onlyAcceptingNewPatients).toBe(true);
+				return [doctor];
+			},
+		});
+
+		const response = await app.request("http://localhost/doctors/search", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				symptoms: "chest pain",
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: true,
+			}),
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.doctors).toHaveLength(1);
 	});
 
 	test("returns a bad request for an invalid limit", async () => {
