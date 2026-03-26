@@ -4,17 +4,15 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
 	DoctorRecommendationCard,
+	direct_to_booking,
 	EmergencyCareAlert,
 	getDoctorSearchUrl,
 	getNextRecommendationLabel,
 	getResultsNavigation,
 	getSymptomValidationUrl,
 	normalizeSymptoms,
-<<<<<<< feature/saved-physicians
 	ResultsActiveFilters,
-=======
 	resolveSymptomsSubmission,
->>>>>>> main
 	ResultsHeader,
 	SearchFiltersForm,
 	SearchHero,
@@ -22,6 +20,7 @@ import {
 	SUGGESTED_SYMPTOMS,
 	searchDoctors,
 	symptomsSuggestEmergencyCare,
+	validateSymptoms,
 	validateSymptomsForDoctorSearch,
 } from "../components/App";
 
@@ -56,6 +55,8 @@ describe("doctor search helpers", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						latitude: null,
+						longitude: null,
 					},
 					{
 						id: 2,
@@ -66,6 +67,8 @@ describe("doctor search helpers", () => {
 						book_appointment_url: null,
 						primary_location: "Monroeville, PA",
 						primary_phone: "412-555-0111",
+						latitude: null,
+						longitude: null,
 					},
 				],
 			}),
@@ -146,6 +149,23 @@ describe("doctor search helpers", () => {
 		);
 	});
 
+	test("direct_to_booking uses profile_url for UPMC scheduling", () => {
+		expect(
+			direct_to_booking({
+				id: 1,
+				full_name: "Dr. Avery Quinn",
+				primary_specialty: "Neurology",
+				accepting_new_patients: true,
+				profile_url: "https://providers.upmc.com/provider/avery/1",
+				book_appointment_url: "https://example.com/direct-book",
+				primary_location: "Pittsburgh, PA",
+				primary_phone: "412-555-0100",
+				latitude: null,
+				longitude: null,
+			}),
+		).toBe("https://providers.upmc.com/provider/avery/1");
+	});
+
 	test("exposes the quick symptom suggestions in the designed order", () => {
 		expect(SUGGESTED_SYMPTOMS).toEqual(["Migraines", "MRI scan", "Broken leg"]);
 	});
@@ -194,7 +214,6 @@ describe("frontend page flow", () => {
 		});
 	});
 
-<<<<<<< feature/saved-physicians
 	test("getResultsNavigation includes filter params when provided", () => {
 		expect(
 			getResultsNavigation("migraines", {
@@ -236,14 +255,14 @@ describe("frontend page flow", () => {
 				}),
 			}),
 		);
-=======
+	});
+
 	test("renders the emergency care alert component", () => {
 		render(<EmergencyCareAlert />);
 
 		const alert = screen.getByRole("alert");
 		expect(alert.textContent).toMatch(/911/);
 		expect(alert.textContent).toMatch(/emergency room/i);
->>>>>>> main
 	});
 
 	test("renders the landing hero with the responsive helper copy hook", () => {
@@ -505,10 +524,13 @@ describe("frontend page flow", () => {
 						book_appointment_url: "https://example.com/book/avery-quinn",
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						latitude: null,
+						longitude: null,
 					},
 				]}
 				activeDoctorIndex={0}
 				onNextDoctor={vi.fn()}
+				userLocation={null}
 			/>,
 		);
 
@@ -544,6 +566,8 @@ describe("frontend page flow", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						latitude: null,
+						longitude: null,
 					},
 				]}
 				activeDoctorIndex={0}
@@ -551,6 +575,7 @@ describe("frontend page flow", () => {
 				isSaved={false}
 				onSave={onSave}
 				onUnsave={onUnsave}
+				userLocation={null}
 			/>,
 		);
 
@@ -579,6 +604,8 @@ describe("frontend page flow", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						latitude: null,
+						longitude: null,
 					},
 				]}
 				activeDoctorIndex={0}
@@ -586,6 +613,7 @@ describe("frontend page flow", () => {
 				isSaved={true}
 				onSave={onSave}
 				onUnsave={onUnsave}
+				userLocation={null}
 			/>,
 		);
 
@@ -612,10 +640,13 @@ describe("frontend page flow", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						latitude: null,
+						longitude: null,
 					},
 				]}
 				activeDoctorIndex={0}
 				onNextDoctor={vi.fn()}
+				userLocation={null}
 			/>,
 		);
 
