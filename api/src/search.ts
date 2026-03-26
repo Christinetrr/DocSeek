@@ -118,20 +118,10 @@ export function createDoctorSearchService(
 		const embedding = await requestEmbedding(symptoms, config);
 		const vectorLiteral = formatVectorLiteral(embedding);
 
-<<<<<<< feature/saved-physicians
-		const rows = await sql<DoctorRow[]>`
-			SELECT d.*
-			FROM doctor_search_embeddings dse
-			INNER JOIN doctors d ON d.id = dse.doctor_id
-			WHERE dse.embedding IS NOT NULL
-			AND (${locationFilter}::text IS NULL OR d.primary_location ILIKE '%' || ${locationFilter} || '%')
-			AND (${onlyAccepting}::boolean IS NULL OR d.accepting_new_patients = true)
-			ORDER BY dse.embedding <=> ${vectorLiteral}::vector
-			LIMIT ${limit}
-		`;
-=======
-		const rows = await querySearchDoctors(sql, vectorLiteral, limit);
->>>>>>> main
+		const rows = await querySearchDoctors(sql, vectorLiteral, limit, {
+			locationContains: locationFilter,
+			onlyAcceptingNewPatients: onlyAccepting,
+		});
 
 		return rows;
 	};
