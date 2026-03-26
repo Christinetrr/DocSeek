@@ -1,6 +1,8 @@
+import { querySearchDoctors } from "./queries";
+
 const DEFAULT_RESULT_LIMIT = 10;
 
-type DoctorRow = {
+export type DoctorRow = {
 	id: number;
 	source_provider_id: number;
 	npi: string | null;
@@ -19,6 +21,8 @@ type DoctorRow = {
 	created_at: string;
 	match_score: number;
 	matched_specialty: string | null;
+	latitude: number | null;
+	longitude: number | null;
 };
 
 type EmbeddingsResponse = {
@@ -28,8 +32,14 @@ type EmbeddingsResponse = {
 	}>;
 };
 
+export type SearchFilters = {
+	location?: string | null;
+	onlyAcceptingNewPatients?: boolean;
+};
+
 type SearchDoctorsOptions = {
 	limit?: number;
+	filters?: SearchFilters;
 };
 
 type SearchDoctorsParams = {
@@ -99,19 +109,12 @@ export function createDoctorSearchService(
 
 	return async ({ symptoms, options }) => {
 		const limit = normalizeSearchLimit(options?.limit);
+		const filters = options?.filters ?? {};
+
 		const embedding = await requestEmbedding(symptoms, config);
 		const vectorLiteral = formatVectorLiteral(embedding);
 
-		const rows = await sql<DoctorRow[]>`
-			SELECT d.*,
-				1 - (dse.embedding <=> ${vectorLiteral}::vector) AS match_score,
-				REPLACE(dse.content, 'Specialty: ', '') AS matched_specialty
-			FROM doctor_search_embeddings dse
-			INNER JOIN doctors d ON d.id = dse.doctor_id
-			WHERE dse.embedding IS NOT NULL
-			ORDER BY dse.embedding <=> ${vectorLiteral}::vector
-			LIMIT ${limit}
-		`;
+		const rows = await querySearchDoctors(sql, vectorLiteral, limit, filters);
 
 		return rows;
 	};

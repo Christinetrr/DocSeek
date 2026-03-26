@@ -4,18 +4,25 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
 	DoctorRecommendationCard,
+	EmergencyCareAlert,
 	getDoctorSearchUrl,
 	getNextRecommendationLabel,
 	getResultsNavigation,
 	getSymptomValidationUrl,
 	normalizeSymptoms,
+<<<<<<< feature/saved-physicians
+	ResultsActiveFilters,
+=======
 	resolveSymptomsSubmission,
+>>>>>>> main
 	ResultsHeader,
+	SearchFiltersForm,
 	SearchHero,
 	SearchPageShell,
 	SUGGESTED_SYMPTOMS,
 	searchDoctors,
-	validateSymptoms,
+	symptomsSuggestEmergencyCare,
+	validateSymptomsForDoctorSearch,
 } from "../components/App";
 
 afterEach(() => {
@@ -142,9 +149,41 @@ describe("doctor search helpers", () => {
 	test("exposes the quick symptom suggestions in the designed order", () => {
 		expect(SUGGESTED_SYMPTOMS).toEqual(["Migraines", "MRI scan", "Broken leg"]);
 	});
+
+	test("detects common emergency symptom phrases", () => {
+		expect(symptomsSuggestEmergencyCare("chest pain")).toBe(true);
+		expect(symptomsSuggestEmergencyCare("Chest Pain")).toBe(true);
+		expect(symptomsSuggestEmergencyCare("severe headache")).toBe(false);
+		expect(symptomsSuggestEmergencyCare("worst headache of my life")).toBe(
+			true,
+		);
+	});
+
+	test("blocks doctor search navigation when validation finds emergency symptoms", () => {
+		const blocked = validateSymptomsForDoctorSearch("chest pain");
+		expect(blocked.ok).toBe(false);
+		if (!blocked.ok) {
+			expect(blocked.message).toMatch(/emergency care/i);
+		}
+
+		const allowed = validateSymptomsForDoctorSearch("migraines");
+		expect(allowed).toEqual({ ok: true, normalized: "migraines" });
+	});
 });
 
 describe("frontend page flow", () => {
+	test("shows the emergency alert when symptom text may need urgent care", () => {
+		render(
+			<SearchHero
+				symptoms="chest pain"
+				onSymptomsChange={vi.fn()}
+				onSubmit={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByRole("alert").textContent).toMatch(/911/);
+	});
+
 	test("normalizes symptom input before navigating to the results page", () => {
 		expect(normalizeSymptoms("  migraines  ")).toBe("migraines");
 		expect(getResultsNavigation("  migraines  ")).toEqual({
@@ -153,6 +192,58 @@ describe("frontend page flow", () => {
 				symptoms: "migraines",
 			},
 		});
+	});
+
+<<<<<<< feature/saved-physicians
+	test("getResultsNavigation includes filter params when provided", () => {
+		expect(
+			getResultsNavigation("migraines", {
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: true,
+			}),
+		).toEqual({
+			to: "/results",
+			search: {
+				symptoms: "migraines",
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: "true",
+			},
+		});
+	});
+
+	test("searchDoctors sends filter params in the request body when provided", async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ doctors: [] }),
+		});
+
+		await searchDoctors("headaches", {
+			apiBaseUrl: "http://localhost:3000",
+			fetchImpl: fetchMock as typeof fetch,
+			filters: {
+				location: "Pittsburgh",
+				onlyAcceptingNewPatients: true,
+			},
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"http://localhost:3000/doctors/search",
+			expect.objectContaining({
+				body: JSON.stringify({
+					symptoms: "headaches",
+					location: "Pittsburgh",
+					onlyAcceptingNewPatients: true,
+				}),
+			}),
+		);
+=======
+	test("renders the emergency care alert component", () => {
+		render(<EmergencyCareAlert />);
+
+		const alert = screen.getByRole("alert");
+		expect(alert.textContent).toMatch(/911/);
+		expect(alert.textContent).toMatch(/emergency room/i);
+>>>>>>> main
 	});
 
 	test("renders the landing hero with the responsive helper copy hook", () => {
@@ -177,7 +268,7 @@ describe("frontend page flow", () => {
 
 	test("renders a skip link for keyboard users", () => {
 		render(
-			<SearchPageShell>
+			<SearchPageShell showNav={false}>
 				<div>Content</div>
 			</SearchPageShell>,
 		);
@@ -357,6 +448,50 @@ describe("frontend page flow", () => {
 		expect(document.querySelector(".results-header-top")).toBeTruthy();
 	});
 
+	test("renders filter form with location and availability options", () => {
+		render(
+			<SearchFiltersForm
+				location="Pittsburgh"
+				onlyAcceptingNewPatients={true}
+				onLocationChange={vi.fn()}
+				onOnlyAcceptingChange={vi.fn()}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("group", { name: /Filter by your preferences/ }),
+		).toBeTruthy();
+		expect(
+			screen.getByLabelText(/Location \(city, state, or ZIP\)/),
+		).toBeTruthy();
+		expect(
+			screen.getByLabelText(/Only show doctors accepting new patients/),
+		).toBeTruthy();
+	});
+
+	test("renders active filters when location and availability are applied", () => {
+		const onRefine = vi.fn();
+		render(
+			<ResultsActiveFilters
+				filters={{
+					location: "Pittsburgh, PA",
+					onlyAcceptingNewPatients: true,
+				}}
+				onRefine={onRefine}
+			/>,
+		);
+
+		expect(
+			screen.getByText(/Filtered by: Pittsburgh, PA • Accepting new patients/),
+		).toBeTruthy();
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: /Refine location and availability filters/,
+			}),
+		);
+		expect(onRefine).toHaveBeenCalledTimes(1);
+	});
+
 	test("renders the doctor card header tag and actions with responsive hook classes", () => {
 		render(
 			<DoctorRecommendationCard
@@ -392,5 +527,103 @@ describe("frontend page flow", () => {
 				})
 				.getAttribute("disabled"),
 		).not.toBeNull();
+	});
+
+	test("doctor card shows Save for later when callbacks provided and not saved", () => {
+		const onSave = vi.fn();
+		const onUnsave = vi.fn();
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+				isSaved={false}
+				onSave={onSave}
+				onUnsave={onUnsave}
+			/>,
+		);
+
+		const saveButton = screen.getByRole("button", {
+			name: "Save Dr. Avery Quinn for later",
+		});
+		expect(saveButton).toBeTruthy();
+		expect(saveButton.textContent).toContain("Save for later");
+		fireEvent.click(saveButton);
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(onUnsave).not.toHaveBeenCalled();
+	});
+
+	test("doctor card shows Saved and calls onUnsave when clicked", () => {
+		const onSave = vi.fn();
+		const onUnsave = vi.fn();
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+				isSaved={true}
+				onSave={onSave}
+				onUnsave={onUnsave}
+			/>,
+		);
+
+		const unsaveButton = screen.getByRole("button", {
+			name: "Remove Dr. Avery Quinn from saved physicians",
+		});
+		expect(unsaveButton).toBeTruthy();
+		expect(unsaveButton.textContent).toContain("Saved");
+		fireEvent.click(unsaveButton);
+		expect(onUnsave).toHaveBeenCalledTimes(1);
+		expect(onSave).not.toHaveBeenCalled();
+	});
+
+	test("doctor card hides save button when onSave/onUnsave not provided", () => {
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+			/>,
+		);
+
+		expect(
+			screen.queryByRole("button", { name: /Save .+ for later/ }),
+		).toBeNull();
+		expect(
+			screen.queryByRole("button", { name: /Remove .+ from saved/ }),
+		).toBeNull();
 	});
 });
