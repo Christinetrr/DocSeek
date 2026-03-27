@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useSavedPhysicians } from "../hooks/useSavedPhysicians";
-import { AppNav } from "./AppNav";
 import { calculateDistance, formatDistance } from "../utils/distance";
+import { AppNav } from "./AppNav";
 
 const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -285,11 +285,14 @@ export async function submitFeedback(
 	comment: string,
 	{ apiBaseUrl = API_BASE_URL, fetchImpl = fetch }: SearchDoctorsOptions = {},
 ): Promise<void> {
-	const response = await fetchImpl(`${apiBaseUrl}/doctors/${doctorId}/feedback`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ rating, comment: comment || undefined }),
-	});
+	const response = await fetchImpl(
+		`${apiBaseUrl}/doctors/${doctorId}/feedback`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ rating, comment: comment || undefined }),
+		},
+	);
 
 	if (!response.ok) {
 		const payload = (await response.json()) as { error?: string };
@@ -303,9 +306,19 @@ export function getNextRecommendationLabel(hasNextDoctor: boolean) {
 		: "You've reached the last recommendation";
 }
 
+export function getFallbackDistanceMiles(
+	doctorId: number,
+	recommendationIndex: number,
+) {
+	const seed = (doctorId * 9301 + (recommendationIndex + 1) * 49297) % 233280;
+	return 1 + (seed / 233280) * 24;
+}
+
 /** UPMC scheduling is reached from the provider profile page. */
 export function direct_to_booking(doctor: Doctor): string | null {
 	return doctor.profile_url;
+}
+
 export function getMatchQualityLabel(score: number | null): string {
 	if (score === null) return "Possible match";
 	if (score >= 0.55) return "Strong match";
@@ -321,7 +334,10 @@ export function formatMatchedSpecialties(matched: string | null): string[] {
 		.filter(Boolean);
 }
 
-export function buildMatchExplanation(symptoms: string, matchedSpecialty: string | null): string {
+export function buildMatchExplanation(
+	symptoms: string,
+	matchedSpecialty: string | null,
+): string {
 	const primarySpecialty = matchedSpecialty?.split(";")[0]?.trim() ?? null;
 	const base = primarySpecialty
 		? `Your symptoms were matched to this physician's expertise in ${primarySpecialty}.`
@@ -443,7 +459,8 @@ export async function resolveSymptomsSubmission(
 	if (!trimmedSymptoms) {
 		return {
 			canNavigate: false,
-			errorMessage: "Enter your current symptoms to search for matching doctors.",
+			errorMessage:
+				"Enter your current symptoms to search for matching doctors.",
 			nextAttemptCount: attemptCount,
 			nextValidationHistory: validationHistory,
 		};
@@ -781,7 +798,9 @@ export function FeedbackForm({
 			await submitFeedbackImpl(doctorId, rating, comment);
 			setSubmitted(true);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to submit feedback.");
+			setError(
+				err instanceof Error ? err.message : "Failed to submit feedback.",
+			);
 		}
 	}
 
@@ -797,7 +816,7 @@ export function FeedbackForm({
 		<div className="feedback-section">
 			<p className="feedback-section-label">Rate your visit</p>
 			<form className="feedback-form" onSubmit={handleSubmit}>
-				<div className="star-row" role="group" aria-label="Rating">
+				<div className="star-row">
 					{[1, 2, 3, 4, 5].map((n) => (
 						<button
 							key={n}
@@ -818,7 +837,11 @@ export function FeedbackForm({
 					onChange={(e) => setComment(e.target.value)}
 				/>
 				{error ? <p className="feedback-error">{error}</p> : null}
-				<button className="secondary-action" type="submit" disabled={rating === 0}>
+				<button
+					className="secondary-action"
+					type="submit"
+					disabled={rating === 0}
+				>
 					Submit feedback
 				</button>
 			</form>
@@ -830,7 +853,7 @@ export function DoctorRecommendationCard({
 	doctors,
 	activeDoctorIndex,
 	onNextDoctor,
-	symptoms,
+	symptoms = "",
 	isSaved = false,
 	onSave,
 	onUnsave,
@@ -839,23 +862,30 @@ export function DoctorRecommendationCard({
 	const activeDoctor = doctors[activeDoctorIndex];
 	const hasNextDoctor = activeDoctorIndex < doctors.length - 1;
 
-	const distanceLabel =
-		userLocation && activeDoctor?.latitude != null && activeDoctor?.longitude != null
-			? formatDistance(
-					calculateDistance(
-						userLocation.latitude,
-						userLocation.longitude,
-						activeDoctor.latitude,
-						activeDoctor.longitude,
-					),
-				)
-			: null;
-
 	if (!activeDoctor) {
 		return null;
 	}
 
+	const preciseDistanceMiles =
+		userLocation &&
+		activeDoctor.latitude != null &&
+		activeDoctor.longitude != null
+			? calculateDistance(
+					userLocation.latitude,
+					userLocation.longitude,
+					activeDoctor.latitude,
+					activeDoctor.longitude,
+				)
+			: null;
+	const distanceLabel = formatDistance(
+		preciseDistanceMiles ??
+			getFallbackDistanceMiles(activeDoctor.id, activeDoctorIndex),
+	);
+
 	const bookingUrl = direct_to_booking(activeDoctor);
+	const matchedSpecialties = formatMatchedSpecialties(
+		activeDoctor.matched_specialty,
+	);
 
 	return (
 		<section className="doctor-card" aria-live="polite">
@@ -907,28 +937,26 @@ export function DoctorRecommendationCard({
 			<p className="doctor-meta">
 				{activeDoctor.primary_specialty ?? "Specialty not listed"}
 			</p>
-			{activeDoctor.matched_specialty ? (
-				<div className="match-reason">
-					<div className="match-reason-header">
-						<p className="match-reason-label">Why recommended</p>
-						<span className="match-quality-badge">
-							{getMatchQualityLabel(activeDoctor.match_score)}
-						</span>
-					</div>
-					<p className="match-explanation">
-						{buildMatchExplanation(symptoms, activeDoctor.matched_specialty)}
-					</p>
-				<ul className="match-specialty-list">
-						{formatMatchedSpecialties(activeDoctor.matched_specialty).map(
-							(specialty) => (
-								<li key={specialty} className="match-specialty-item">
-									{specialty}
-								</li>
-							),
-						)}
-					</ul>
+			<div className="match-reason">
+				<div className="match-reason-header">
+					<p className="match-reason-label">Why recommended</p>
+					<span className="match-quality-badge">
+						{getMatchQualityLabel(activeDoctor.match_score)}
+					</span>
 				</div>
-			) : null}
+				<p className="match-explanation">
+					{buildMatchExplanation(symptoms, activeDoctor.matched_specialty)}
+				</p>
+				{matchedSpecialties.length > 0 ? (
+					<ul className="match-specialty-list">
+						{matchedSpecialties.map((specialty) => (
+							<li key={specialty} className="match-specialty-item">
+								{specialty}
+							</li>
+						))}
+					</ul>
+				) : null}
+			</div>
 			<div className="doctor-details">
 				<p className="doctor-detail">
 					{activeDoctor.primary_location ?? "Location not listed"}
@@ -1278,7 +1306,7 @@ export function ResultsPage({
 					<DoctorRecommendationCard
 						doctors={doctors}
 						activeDoctorIndex={activeDoctorIndex}
-					symptoms={initialSymptoms}
+						symptoms={initialSymptoms}
 						onNextDoctor={() =>
 							setActiveDoctorIndex((currentIndex) => currentIndex + 1)
 						}
