@@ -111,7 +111,9 @@ export function createApp({
 			const message = error instanceof Error ? error.message : "failed to submit feedback";
 			const status = message.includes("rating must be") ? 400 : 500;
 			return c.json({ error: message }, status);
-  
+		}
+	});
+
 	app.post("/symptoms/validate", async (c) => {
 		const body = await c.req.json().catch(() => null);
 		const symptoms = typeof body?.symptoms === "string" ? body.symptoms.trim() : "";
@@ -154,12 +156,3 @@ export function createApp({
 
 	return app;
 }
-
-const port = Number(process.env.PORT ?? 3000);
-
-export const app = createApp({ port });
-
-export default {
-	port,
-	fetch: app.fetch,
-};

@@ -50,6 +50,8 @@ type DoctorSearchResponse = {
 export type SearchFilters = {
 	location?: string;
 	onlyAcceptingNewPatients?: boolean;
+};
+
 type SymptomValidationResponse = {
 	isDescriptiveEnough: boolean;
 	reasoning?: string;
@@ -168,10 +170,6 @@ export function normalizeSymptoms(symptoms: string) {
 	return symptoms.trim();
 }
 
-export function getResultsNavigation(
-	symptoms: string,
-	filters?: SearchFilters,
-) {
 /** Lowercase, collapse spaces, normalize apostrophes for phrase matching. */
 function normalizeSymptomsForMatching(symptoms: string) {
 	return normalizeSymptoms(symptoms)
@@ -265,7 +263,10 @@ export function EmergencyCareAlert() {
 	);
 }
 
-export function getResultsNavigation(symptoms: string) {
+export function getResultsNavigation(
+	symptoms: string,
+	filters?: SearchFilters,
+) {
 	return {
 		to: "/results" as const,
 		search: {
@@ -302,8 +303,9 @@ export function getNextRecommendationLabel(hasNextDoctor: boolean) {
 		: "You've reached the last recommendation";
 }
 
+/** UPMC scheduling is reached from the provider profile page. */
 export function direct_to_booking(doctor: Doctor): string | null {
-	return doctor.book_appointment_url ?? doctor.profile_url;
+	return doctor.profile_url;
 export function getMatchQualityLabel(score: number | null): string {
 	if (score === null) return "Possible match";
 	if (score >= 0.55) return "Strong match";
@@ -375,10 +377,6 @@ export async function searchDoctors(
 	return payload.doctors;
 }
 
-export function SearchPageShell({
-	children,
-	showNav = true,
-}: SearchPageShellProps) {
 export async function validateSymptoms(
 	symptoms: string,
 	{
@@ -497,7 +495,10 @@ export async function resolveSymptomsSubmission(
 	};
 }
 
-export function SearchPageShell({ children }: SearchPageShellProps) {
+export function SearchPageShell({
+	children,
+	showNav = true,
+}: SearchPageShellProps) {
 	return (
 		<main className="app-shell">
 			<a className="skip-link" href="#page-content">
@@ -687,49 +688,58 @@ export function HomePage({ navigateToResults }: HomePageProps) {
 		SymptomValidationMessage[]
 	>([]);
 
-function handleSymptomsChange(value: string) {
-	setSymptoms(value);
-	setErrorMessage("");
-}
-
-async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-	event.preventDefault();
-	setIsValidating(true);
-	setErrorMessage("");
-
-	try {
-		// 1. Smart Validation from Main
-		const result = await resolveSymptomsSubmission(symptoms, {
-			attemptCount: validationAttemptCount,
-			validationHistory,
-		});
-
-		setValidationAttemptCount(result.nextAttemptCount);
-		setValidationHistory(result.nextValidationHistory);
-
-		if (!result.canNavigate) {
-			setErrorMessage(result.errorMessage);
-			return;
-		}
-
-		// 2. Filter Logic from your Saved Physicians branch
-		const filters: SearchFilters = {};
-		if (location.trim()) filters.location = location.trim();
-		if (onlyAcceptingNewPatients) filters.onlyAcceptingNewPatients = true;
-
-		// 3. Navigate with both Symptoms and Filters
-		navigateToResults(
-			result.symptoms, 
-			Object.keys(filters).length ? filters : undefined
-		);
-	} catch (error) {
-		setErrorMessage(
-			error instanceof Error ? error.message : "Unable to validate symptoms."
-		);
-	} finally {
-		setIsValidating(false);
+	function handleSymptomsChange(value: string) {
+		setSymptoms(value);
+		setErrorMessage("");
 	}
-}
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setIsValidating(true);
+		setErrorMessage("");
+
+		try {
+			// 1. Smart Validation from Main
+			const result = await resolveSymptomsSubmission(symptoms, {
+				attemptCount: validationAttemptCount,
+				validationHistory,
+			});
+
+			setValidationAttemptCount(result.nextAttemptCount);
+			setValidationHistory(result.nextValidationHistory);
+
+			if (!result.canNavigate) {
+				setErrorMessage(
+					result.errorMessage ??
+						"Add a little more detail about the symptoms you are experiencing.",
+				);
+				return;
+			}
+
+			const nextSymptoms = result.symptoms;
+			if (!nextSymptoms) {
+				setErrorMessage("Unable to search without symptoms.");
+				return;
+			}
+
+			// 2. Filter Logic from your Saved Physicians branch
+			const filters: SearchFilters = {};
+			if (location.trim()) filters.location = location.trim();
+			if (onlyAcceptingNewPatients) filters.onlyAcceptingNewPatients = true;
+
+			// 3. Navigate with both Symptoms and Filters
+			navigateToResults(
+				nextSymptoms,
+				Object.keys(filters).length > 0 ? filters : undefined,
+			);
+		} catch (error) {
+			setErrorMessage(
+				error instanceof Error ? error.message : "Unable to validate symptoms.",
+			);
+		} finally {
+			setIsValidating(false);
+		}
+	}
 
 	return (
 		<SearchPageShell>
@@ -738,13 +748,13 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 				onSymptomsChange={handleSymptomsChange}
 				onSubmit={handleSubmit}
 				errorMessage={errorMessage}
-          filters={{
-            location,
-            onlyAcceptingNewPatients,
-            onLocationChange: setLocation,
-            onOnlyAcceptingChange: setOnlyAcceptingNewPatients,
-          }}
-          isLoading={isValidating}
+				filters={{
+					location,
+					onlyAcceptingNewPatients,
+					onLocationChange: setLocation,
+					onOnlyAcceptingChange: setOnlyAcceptingNewPatients,
+				}}
+				isLoading={isValidating}
 			/>
 		</SearchPageShell>
 	);
@@ -848,6 +858,8 @@ export function DoctorRecommendationCard({
 		return null;
 	}
 
+	const bookingUrl = direct_to_booking(activeDoctor);
+
 	return (
 		<section className="doctor-card" aria-live="polite">
 			<div className="doctor-card-header">
@@ -943,9 +955,9 @@ export function DoctorRecommendationCard({
 						View profile
 					</a>
 				) : null}
-				{directBookingUrl ? (
+				{bookingUrl ? (
 					<a
-						href={directBookingUrl}
+						href={bookingUrl}
 						target="_blank"
 						rel="noreferrer"
 						aria-label={`Book an appointment with ${activeDoctor.full_name} (opens in a new tab)`}

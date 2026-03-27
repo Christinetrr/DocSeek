@@ -1,5 +1,10 @@
 import type { DoctorRow, SearchFilters } from "./search";
 
+export type QuerySearchDoctorFilters = {
+	locationContains?: string | null;
+	onlyAcceptingNewPatients?: boolean | null;
+};
+
 export function querySearchDoctors(
 	sql: Bun.SQL,
 	vectorLiteral: string,

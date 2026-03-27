@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BookmarkCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { type Doctor, SearchPageShell } from "../components/App";
+import {
+	type Doctor,
+	SearchPageShell,
+	direct_to_booking,
+} from "../components/App";
 import { useSavedPhysicians } from "../hooks/useSavedPhysicians";
 
 export const Route = createFileRoute("/saved")({
@@ -84,6 +88,8 @@ function SavedDoctorCard({
 
 	if (!activeDoctor) return null;
 
+	const bookingUrl = direct_to_booking(activeDoctor);
+
 	return (
 		<section className="doctor-card" aria-live="polite">
 			<div className="doctor-card-header">
@@ -138,9 +144,9 @@ function SavedDoctorCard({
 						View profile
 					</a>
 				) : null}
-				{activeDoctor.book_appointment_url ? (
+				{bookingUrl ? (
 					<a
-						href={activeDoctor.book_appointment_url}
+						href={bookingUrl}
 						target="_blank"
 						rel="noreferrer"
 						aria-label={`Book an appointment with ${activeDoctor.full_name} (opens in a new tab)`}
