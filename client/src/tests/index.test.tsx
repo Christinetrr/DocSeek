@@ -160,6 +160,8 @@ describe("doctor search helpers", () => {
 				book_appointment_url: "https://example.com/direct-book",
 				primary_location: "Pittsburgh, PA",
 				primary_phone: "412-555-0100",
+				match_score: null,
+				matched_specialty: null,
 				latitude: null,
 				longitude: null,
 			}),
@@ -524,12 +526,15 @@ describe("frontend page flow", () => {
 						book_appointment_url: "https://example.com/book/avery-quinn",
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						match_score: null,
+						matched_specialty: null,
 						latitude: null,
 						longitude: null,
 					},
 				]}
 				activeDoctorIndex={0}
 				onNextDoctor={vi.fn()}
+				symptoms="headache"
 				userLocation={null}
 			/>,
 		);
@@ -566,6 +571,8 @@ describe("frontend page flow", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						match_score: null,
+						matched_specialty: null,
 						latitude: null,
 						longitude: null,
 					},
@@ -575,6 +582,7 @@ describe("frontend page flow", () => {
 				isSaved={false}
 				onSave={onSave}
 				onUnsave={onUnsave}
+				symptoms="headache"
 				userLocation={null}
 			/>,
 		);
@@ -604,6 +612,8 @@ describe("frontend page flow", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						match_score: null,
+						matched_specialty: null,
 						latitude: null,
 						longitude: null,
 					},
@@ -613,6 +623,7 @@ describe("frontend page flow", () => {
 				isSaved={true}
 				onSave={onSave}
 				onUnsave={onUnsave}
+				symptoms="headache"
 				userLocation={null}
 			/>,
 		);
@@ -640,12 +651,15 @@ describe("frontend page flow", () => {
 						book_appointment_url: null,
 						primary_location: "Pittsburgh, PA",
 						primary_phone: "412-555-0100",
+						match_score: null,
+						matched_specialty: null,
 						latitude: null,
 						longitude: null,
 					},
 				]}
 				activeDoctorIndex={0}
 				onNextDoctor={vi.fn()}
+				symptoms="headache"
 				userLocation={null}
 			/>,
 		);
@@ -656,5 +670,40 @@ describe("frontend page flow", () => {
 		expect(
 			screen.queryByRole("button", { name: /Remove .+ from saved/ }),
 		).toBeNull();
+	});
+
+	test("doctor card shows a fallback recommendation explanation without matched specialties", () => {
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 1,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+						latitude: null,
+						longitude: null,
+						matched_specialty: null,
+						match_score: 0.42,
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+				symptoms="persistent headaches"
+				userLocation={null}
+			/>,
+		);
+
+		expect(screen.getByText("Why recommended")).toBeTruthy();
+		expect(
+			screen.getByText(
+				`Your symptoms were matched to this physician's specialty. You described: "persistent headaches".`,
+			),
+		).toBeTruthy();
+		expect(document.querySelector(".match-specialty-list")).toBeNull();
 	});
 });

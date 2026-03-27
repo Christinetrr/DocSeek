@@ -832,7 +832,7 @@ export function DoctorRecommendationCard({
 	doctors,
 	activeDoctorIndex,
 	onNextDoctor,
-	symptoms,
+	symptoms = "",
 	isSaved = false,
 	onSave,
 	onUnsave,
@@ -858,6 +858,7 @@ export function DoctorRecommendationCard({
 	}
 
 	const bookingUrl = direct_to_booking(activeDoctor);
+	const matchedSpecialties = formatMatchedSpecialties(activeDoctor.matched_specialty);
 
 	return (
 		<section className="doctor-card" aria-live="polite">
@@ -909,28 +910,26 @@ export function DoctorRecommendationCard({
 			<p className="doctor-meta">
 				{activeDoctor.primary_specialty ?? "Specialty not listed"}
 			</p>
-			{activeDoctor.matched_specialty ? (
-				<div className="match-reason">
-					<div className="match-reason-header">
-						<p className="match-reason-label">Why recommended</p>
-						<span className="match-quality-badge">
-							{getMatchQualityLabel(activeDoctor.match_score)}
-						</span>
-					</div>
-					<p className="match-explanation">
-						{buildMatchExplanation(symptoms, activeDoctor.matched_specialty)}
-					</p>
-				<ul className="match-specialty-list">
-						{formatMatchedSpecialties(activeDoctor.matched_specialty).map(
-							(specialty) => (
-								<li key={specialty} className="match-specialty-item">
-									{specialty}
-								</li>
-							),
-						)}
-					</ul>
+			<div className="match-reason">
+				<div className="match-reason-header">
+					<p className="match-reason-label">Why recommended</p>
+					<span className="match-quality-badge">
+						{getMatchQualityLabel(activeDoctor.match_score)}
+					</span>
 				</div>
-			) : null}
+				<p className="match-explanation">
+					{buildMatchExplanation(symptoms, activeDoctor.matched_specialty)}
+				</p>
+				{matchedSpecialties.length > 0 ? (
+					<ul className="match-specialty-list">
+						{matchedSpecialties.map((specialty) => (
+							<li key={specialty} className="match-specialty-item">
+								{specialty}
+							</li>
+						))}
+					</ul>
+				) : null}
+			</div>
 			<div className="doctor-details">
 				<p className="doctor-detail">
 					{activeDoctor.primary_location ?? "Location not listed"}
