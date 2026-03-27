@@ -7,13 +7,14 @@ import {
 	direct_to_booking,
 	EmergencyCareAlert,
 	getDoctorSearchUrl,
+	getFallbackDistanceMiles,
 	getNextRecommendationLabel,
 	getResultsNavigation,
 	getSymptomValidationUrl,
 	normalizeSymptoms,
 	ResultsActiveFilters,
-	resolveSymptomsSubmission,
 	ResultsHeader,
+	resolveSymptomsSubmission,
 	SearchFiltersForm,
 	SearchHero,
 	SearchPageShell,
@@ -23,6 +24,7 @@ import {
 	validateSymptoms,
 	validateSymptomsForDoctorSearch,
 } from "../components/App";
+import { formatDistance } from "../utils/distance";
 
 afterEach(() => {
 	cleanup();
@@ -394,7 +396,8 @@ describe("frontend page flow", () => {
 			}),
 		).resolves.toEqual({
 			canNavigate: false,
-			errorMessage: "Enter your current symptoms to search for matching doctors.",
+			errorMessage:
+				"Enter your current symptoms to search for matching doctors.",
 			nextAttemptCount: 0,
 			nextValidationHistory: [],
 		});
@@ -554,6 +557,37 @@ describe("frontend page flow", () => {
 				})
 				.getAttribute("disabled"),
 		).not.toBeNull();
+	});
+
+	test("doctor card shows a fallback distance when geolocation is unavailable", () => {
+		render(
+			<DoctorRecommendationCard
+				doctors={[
+					{
+						id: 7,
+						full_name: "Dr. Avery Quinn",
+						primary_specialty: "Neurology",
+						accepting_new_patients: true,
+						profile_url: null,
+						book_appointment_url: null,
+						primary_location: "Pittsburgh, PA",
+						primary_phone: "412-555-0100",
+						match_score: null,
+						matched_specialty: null,
+						latitude: null,
+						longitude: null,
+					},
+				]}
+				activeDoctorIndex={0}
+				onNextDoctor={vi.fn()}
+				symptoms="headache"
+				userLocation={null}
+			/>,
+		);
+
+		expect(
+			screen.getByText(formatDistance(getFallbackDistanceMiles(7, 0))),
+		).toBeTruthy();
 	});
 
 	test("doctor card shows Save for later when callbacks provided and not saved", () => {
