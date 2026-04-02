@@ -32,30 +32,30 @@ Execution context: the **browser** runs the Vite/React client where the patient 
 ```mermaid
 flowchart TB
   subgraph client["Browser — React / Vite (e.g. localhost:5173)"]
-    UI[HomePage / SearchHero / SearchForm]
-    Router[TanStack Router — /"]
+    UI["HomePage, SearchHero, SearchForm"]
+    Router["TanStack Router — home route"]
   end
 
   subgraph api["Application server — Bun + Hono (e.g. localhost:3000)"]
-    HTTP[createApp — Hono]
-    ValMod[validation.ts — assessSymptomDescription]
-    Env[env.ts — RuntimeConfig]
+    HTTP["createApp — Hono"]
+    ValMod["validation.ts — assessSymptomDescription"]
+    Env["env.ts — RuntimeConfig"]
   end
 
   subgraph data["Data tier — PostgreSQL + pgvector"]
-    DB[(doctors, embeddings — not used by /symptoms/validate)]
+    DB[(doctors, embeddings — not used by symptom validation API)]
   end
 
   subgraph cloud["External SaaS — OpenAI API"]
-    OAI[Chat Completions + JSON schema]
+    OAI["Chat Completions + JSON schema"]
   end
 
   UI --> Router
-  UI -->|HTTPS JSON POST /symptoms/validate| HTTP
+  UI -->|"HTTPS JSON POST /symptoms/validate"| HTTP
   HTTP --> ValMod
   ValMod --> OAI
   Env --> ValMod
-  DB -.->|out of scope for this story| ValMod
+  DB -.->|"out of scope for this story"| ValMod
 ```
 
 ---
@@ -72,8 +72,8 @@ flowchart LR
   end
 
   subgraph C["React client"]
-    V[POST /symptoms/validate]
-    R[resolveSymptomsSubmission — attempt cap + history]
+    V["POST /symptoms/validate"]
+    R["resolveSymptomsSubmission — attempt cap + history"]
   end
 
   subgraph A["Bun API"]
@@ -90,8 +90,8 @@ flowchart LR
   V --> VAL
   VAL --> API
   API --> VAL
-  VAL -->|isDescriptiveEnough + reasoning| C
-  C -->|inline guidance or navigate to /results| P
+  VAL -->|"isDescriptiveEnough + reasoning"| C
+  C -->|"inline guidance or navigate to /results"| P
 ```
 
 **Data elements:**
